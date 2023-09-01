@@ -47,7 +47,7 @@ Here's train dataset loss:
 
 ![train loss](static/train_loss.png)
 
-I didn't added a validation set for this data, I should have looked at these spikes, but instead I just checked what would the fine-tuned model produce for the same prompt.
+I didn't add a validation set for this data, I should have looked at these spikes, but instead I just checked what would the fine-tuned model produce for the same prompt.
 
 At ~100 iteration we get the following:  _1. The number of times the application was launched. 2. The number of times the application was closed._
 
@@ -55,7 +55,7 @@ At ~400 iteration much better output is produced:
 
 _Cubestat reports the following metrics: 1. CPU utilization. 2 GPU utilization. 3 Memory usage. 4 Network interface utilization._
 
-Getting to this level took ~15h on Mac Mini M1.
+Getting here took ~15h on Mac Mini M1.
 
 ### How does it work?
 For all versions - 7B, 13B and 70B the process is roughly the same.
@@ -68,10 +68,10 @@ Doing forward path is easy - we just load modules when we need and pass the outp
 
 Backward pass is a little more tricky, in a way we have to run forward pass twice. The way it's [currently implemented](https://github.com/okuvshynov/slowllama/blob/main/blackbox_model.py#L351) is:
 1. Do a forward pass while also saving inputs to each offloaded block to the hard drive. The goal of the first forward pass is to compute the final loss and cache inputs to each offloaded module. 
-2. Then, do a manual backward gradient propagation. We start from the last module, re-run each module with the input we cached on step (1) again. We run backward pass within that block and pass the gradient for the input to the next (previous?) module. As we use LoRA, only LoRA weights are being updated. LoRA weights are not part of the original model and are not offloaded to disk. Important: we also need to save and restore random number generation state before evaluating each offloaded module. During training we use dropout, and randomly switched off neurons should be the same on both forward passes.
-3. After that we run optimizer step on LoRA weights and save them separately if needed. LoRA weights are the only one which will have gradients computed.
+2. Then, do a manual backward gradient propagation. We start from the last module, re-run each module with the input we cached on step (1) again. After that we run backward pass within that block and pass the gradient for the input to the next (previous?) module. As we use LoRA, only LoRA weights are being updated. LoRA weights are not part of the original model and are not offloaded to disk. Important: we also need to save and restore random number generation state before evaluating each offloaded module. During training we use dropout, and randomly switched off neurons should be the same on both forward passes.
+3. After that we run optimizer step on LoRA weights and save them separately if needed.
 
-Original version which can be still found [here](https://github.com/okuvshynov/experiments/tree/5cf944cb1274e577d1e755e6ad1957190d286d9d/split_model) was capable of doing full finetuning and update all weights pretty much the same way. I've temporarily removed that feature to preserve the lifespan of SSDs, as frequent write operations can degrade their performance over time. Reading from SSDs isn't an issue, but they do have a write limit. Limit is typically high enough for normal usage, but in the case of full finetunining we'll have to write, ~150Gb per one iteration/weight update of llama70, assuming stateless optimizer and no gradient accumulation. With AdamW we'll have to save/update another 150-300Gb (depending on data types used) of optimizer state per iteration. If, for example, we assume 1Pb of writes before 500Gb disk will start having issues, even 100 iterations of finetuning would incur significant cost/risk. 
+Original version which can be still found [here](https://github.com/okuvshynov/experiments/tree/5cf944cb1274e577d1e755e6ad1957190d286d9d/split_model) was capable of doing full finetuning and update all weights pretty much the same way. I've temporarily removed that feature to preserve the lifespan of SSDs, as frequent write operations can degrade performance over time. Reading from SSDs isn't an issue, but they do have a write limit. Limit is typically high enough for normal usage, but in the case of full finetunining we'll have to write ~150Gb per one iteration/weight update of llama70, assuming stateless optimizer and no gradient accumulation. With AdamW we'll have to save/update another 150-300Gb (depending on data types used) of optimizer state per iteration. If, for example, we assume 1Pb of writes before 500Gb disk will start having issues, even 100 iterations of finetuning would incur significant cost/risk. 
 
 There are still remnants of that code in the current version, for example Dropout layers for static, frozen model, which I should clean up. 
 We can bring full finetuning back if needed though.
@@ -102,7 +102,6 @@ If it is that slow, what's the point?
 6. This approach can be used not only for original llama2 by Meta, but for smaller models with similar architecture, for example ones produced by [llama2.c](https://github.com/karpathy/llama2.c). These might just fit into memory though.
 7. If we can amortize the IO well on machines with single GPU and fast storage we should be able to finetune large models in reasonable time. 
 
-
 ### Project structure
 
 Just a few files with no dependencies other than torch and sentencepiece for tokenizer.
@@ -116,7 +115,7 @@ test_gen.py - greedily complete the prompt. Takes base weights + trained LoRA we
 
 ### TODO:
 ```
-[ ] merge lora back with base model weights and export model in original format. Current 'save' would just save a copy of the original model;
+[ ] merge lora weights with base model weights and export the result in original format.
 [ ] rope -- double-check the values in checkpoint vs what's being computed.
 [ ] make lora params (rank, alpha, dropout) easily configurable;
 [ ] check if/how it works on CUDA;
@@ -131,7 +130,7 @@ test_gen.py - greedily complete the prompt. Takes base weights + trained LoRA we
 ```
 
 ### References
-* [llama](https://github.com/facebookresearch/llama)
+* [llama2](https://github.com/facebookresearch/llama)
 * [llama.cpp](https://github.com/ggerganov/llama.cpp)
 * [llama2.c](https://github.com/karpathy/llama2.c)
 * [cubestat](https://github.com/okuvshynov/cubestat)
@@ -139,4 +138,4 @@ test_gen.py - greedily complete the prompt. Takes base weights + trained LoRA we
 
 ### Contact
 
-github handle @ gmail.com
+{github handle} @ gmail.com
