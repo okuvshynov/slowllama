@@ -1,0 +1,9 @@
+Cubestat is a command-line utility to monitor system metrics in horizon chart format. It was originally created for Apple M1/M2 devices, but now works on Linux with nVidia GPU as well, including Google Colab environment.
+
+Currently cubestat reports:
+
+CPU utilization - configurable per core ('expanded'), cluster of cores: Efficiency/Performance ('cluster') or both. Is shown as percentage.
+GPU utilization per card/chip. Is shown in percentage. Works for Apple's M1/M2 SoC and nVidia GPUs. For nVidia GPU shows memory usage as well.
+ANE (Apple's Neural Engine) power consumption. According to man powermetrics it is an estimate, but seems working good enough as a proxy to ANE utilization. Is shown as percentage.
+Disk and network IO; Is shown in Kb/s.
+Memory usage in %
