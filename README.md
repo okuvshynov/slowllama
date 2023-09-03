@@ -8,7 +8,7 @@ Current version is using LoRA to limit the updates to a smaller set of parameter
 
 Finetuning is the only focus, there's nothing special done for inference, consider [llama.cpp](https://github.com/ggerganov/llama.cpp).
 
-It should work on CUDA as well, but I didn't do any tests/optimization for that - most likely it'll move things between storage/RAM/GPU more than needed + use wrong types and maybe transform between types. Maybe i hardcoded ```to('mps')``` somewhere. In theory it should be possible to finetune, for example, 70B llama in bfloat16 with LoRA on single more-less recent GPU.
+It should work on CUDA as well, but I didn't do any tests/optimization for that - most likely it'll move things between storage/RAM/GPU more than needed + use wrong types and maybe transform between types. Maybe i hardcoded ```to('mps')``` somewhere. In theory it should be possible to finetune, for example, 70B llama in bfloat16 with LoRA on single more-less recent GPU. See some thoughts/plans in [TODO section](#todo)
 
 ### Example
 
@@ -112,6 +112,11 @@ Just a few files with no dependencies other than torch and sentencepiece for tok
 
 
 ### TODO:
+
+After some thinking and checking machines with nVidia GPU - on many configurations we should be able to:
+1. Skip SSD storage altogether and just save everything in RAM. If you have 256Gb of RAM we should be able to finetune 70B model in bfloat16; Thus, we need to make it possible/configurable
+2. If we store everything in RAM, we can bring back full finetune. Also need to configure. How do we save snapshots? Still, will only be possible with statless optimizer, need more RAM to store adamw weights. Let's start with LoRA in RAM.
+
 ```
 [ ] merge lora weights with base model weights and export the combined result in original format.
 [ ] check if/how it works on CUDA;
