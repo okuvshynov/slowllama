@@ -17,16 +17,31 @@ from torch import nn
 
 from utils import save_rng_state, restore_rng_state, device_map, intermediate_path, device_map, next_id, device_supports_dtype
 
+@dataclass
+class ModelArgs:
+    dim: int = 4096
+    n_layers: int = 32
+    n_heads: int = 32
+    n_kv_heads: Optional[int] = None
+    vocab_size: int = -1  # defined later by tokenizer
+    multiple_of: int = 256  # make SwiGLU hidden layer size multiple of large power of 2
+    norm_eps: float = 1e-5
+    max_seq_len: int = 2048
+    dropout: float = 0.0
+    ffn_dim_multiplier: Optional[float] = None
+    compute_dtype: torch.dtype = torch.float32
+
 # a wrapper around arbitrary module which can save/load inner model to hard drive
 # we store base weights always as bfloat16 (that's what llama2 uses)
 # but we need to load and return it as a type we use for computation.
 # it gets a little more tricky for MPS device because we cannot load bfloat16 there 
 # directly.
 class Blackbox(torch.nn.Module):
-    def __init__(self, module):
+    def __init__(self, module, args: ModelArgs):
         super().__init__()
         self.module_id = next_id()
         self.input_id = next_id()
+        self.compute_dtype = args.compute_dtype
         torch.save(module.to('cpu').to(torch.bfloat16), intermediate_path(self.module_id))
 
     def loaded_inner(self):
@@ -34,11 +49,11 @@ class Blackbox(torch.nn.Module):
     
     def load(self, device):
         if device_supports_dtype(device, torch.bfloat16):
-            return torch.load(intermediate_path(self.module_id), map_location=device_map(device))
+            return torch.load(intermediate_path(self.module_id), map_location=device_map(device)).to(self.compute_dtype)
         else:
-            # for MPS we need to transform to other data type
+            # for MPS we need to load to CPU first
             res = torch.load(intermediate_path(self.module_id), map_location='cpu')
-            return res.to(torch.float32).to(device_map(device))
+            return res.to(self.compute_dtype).to(device_map(device))
 
     def save(self, module):
         torch.save(module.to('cpu').to(torch.bfloat16), intermediate_path(self.module_id))
@@ -63,19 +78,6 @@ class Blackbox(torch.nn.Module):
         with torch.no_grad():
             return module(input, *args)
 
-@dataclass
-class ModelArgs:
-    dim: int = 4096
-    n_layers: int = 32
-    n_heads: int = 32
-    n_kv_heads: Optional[int] = None
-    vocab_size: int = -1  # defined later by tokenizer
-    multiple_of: int = 256  # make SwiGLU hidden layer size multiple of large power of 2
-    norm_eps: float = 1e-5
-    max_seq_len: int = 2048
-    dropout: float = 0.0
-    ffn_dim_multiplier: Optional[float] = None
-    compute_dtype: torch.dtype = torch.float32
 
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float):
@@ -285,7 +287,7 @@ class Transformer(nn.Module):
         self.vocab_size = params.vocab_size
         self.n_layers = params.n_layers
 
-        self.tok_embeddings = Blackbox(nn.Embedding(params.vocab_size, params.dim))
+        self.tok_embeddings = Blackbox(nn.Embedding(params.vocab_size, params.dim), params)
         self.dropout = nn.Dropout(params.dropout)
         self.layers = torch.nn.ModuleList()
 
@@ -298,11 +300,11 @@ class Transformer(nn.Module):
             self.lora_layers.append({ 'q_lora': q_lora, 'v_lora': v_lora})
             self.add_module(f'q_lora_{layer_id}', q_lora)
             self.add_module(f'v_lora_{layer_id}', v_lora)
-            self.layers.append(Blackbox(block))
+            self.layers.append(Blackbox(block, params))
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
         self.norm.requires_grad = False
-        self.output = Blackbox(nn.Linear(params.dim, params.vocab_size, bias=False))
+        self.output = Blackbox(nn.Linear(params.dim, params.vocab_size, bias=False), params)
 
         # some useful precompute for the RoPE relative positional embeddings
         freqs_cos, freqs_sin = precompute_freqs_cis(self.params.dim // self.params.n_heads, self.params.max_seq_len)
