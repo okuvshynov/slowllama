@@ -15,9 +15,13 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from utils import save_rng_state, restore_rng_state, device_map, intermediate_path, device_map, next_id
+from utils import save_rng_state, restore_rng_state, device_map, intermediate_path, device_map, next_id, device_supports_dtype
 
 # a wrapper around arbitrary module which can save/load inner model to hard drive
+# we store base weights always as bfloat16 (that's what llama2 uses)
+# but we need to load and return it as a type we use for computation.
+# it gets a little more tricky for MPS device because we cannot load bfloat16 there 
+# directly.
 class Blackbox(torch.nn.Module):
     def __init__(self, module):
         super().__init__()
@@ -29,8 +33,12 @@ class Blackbox(torch.nn.Module):
         return torch.load(intermediate_path(self.module_id), map_location='cpu')
     
     def load(self, device):
-        res = torch.load(intermediate_path(self.module_id), map_location='cpu')
-        return res.to(torch.float32).to(device_map(device))
+        if device_supports_dtype(device, torch.bfloat16):
+            return torch.load(intermediate_path(self.module_id), map_location=device_map(device))
+        else:
+            # for MPS we need to transform to other data type
+            res = torch.load(intermediate_path(self.module_id), map_location='cpu')
+            return res.to(torch.float32).to(device_map(device))
 
     def save(self, module):
         torch.save(module.to('cpu').to(torch.bfloat16), intermediate_path(self.module_id))
@@ -67,6 +75,7 @@ class ModelArgs:
     max_seq_len: int = 2048
     dropout: float = 0.0
     ffn_dim_multiplier: Optional[float] = None
+    compute_dtype: torch.dtype = torch.float32
 
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float):
@@ -143,16 +152,17 @@ class Attention(nn.Module):
         self.n_rep = self.n_heads // self.n_kv_heads
         self.head_dim = args.dim // args.n_heads
 
-        # TODO: here's where we inject LoRA
+        # here's where we inject LoRA
         self.wq = nn.Linear(args.dim, args.n_heads * self.head_dim, bias=False)
         self.wk = nn.Linear(args.dim, self.n_kv_heads * self.head_dim, bias=False)
 
-        # TODO: here's where we inject LoRA
+        # here's where we inject LoRA
         self.wv = nn.Linear(args.dim, self.n_kv_heads * self.head_dim, bias=False)
 
         self.wo = nn.Linear(args.n_heads * self.head_dim, args.dim, bias=False)
 
         # TODO: probably don't need dropout here as we don't plan to do full finetune
+        # or maybe we do.
         self.attn_dropout = nn.Dropout(args.dropout)
         self.resid_dropout = nn.Dropout(args.dropout)
         self.dropout = args.dropout
@@ -283,8 +293,8 @@ class Transformer(nn.Module):
         self.lora_layers = []
         for layer_id in range(params.n_layers):
             block = TransformerBlock(layer_id, params)
-            q_lora = LoRA(block.attention.wq).to('mps')
-            v_lora = LoRA(block.attention.wv).to('mps')
+            q_lora = LoRA(block.attention.wq).to(params.compute_dtype)
+            v_lora = LoRA(block.attention.wv).to(params.compute_dtype)
             self.lora_layers.append({ 'q_lora': q_lora, 'v_lora': v_lora})
             self.add_module(f'q_lora_{layer_id}', q_lora)
             self.add_module(f'v_lora_{layer_id}', v_lora)

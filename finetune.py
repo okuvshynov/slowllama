@@ -14,17 +14,19 @@ with open('test_data/cubestat.txt') as f:
     text = f.read()
 prompt = 'Cubestat reports the following metrics: '
 
-# old/new model paths
-model_path = '../llama-2-70b'
+model_path = '../llama-2-7b'
 
 # training settings
 seed = 54321
 iters = 1000
-device = 'mps'
+device = 'mps' # mps for macbooks
 seq_len = 128
 dropout = 0.01
-batch_size = 32
+batch_size = 16
 lr = 1e-3
+
+# type used for computation. Might be different from storage type (which is bfloat16)
+compute_dtype = torch.float32 # float32 for macbooks
 
 eval_period = 10
 gen_tokens = 20
@@ -57,7 +59,7 @@ if __name__ == '__main__':
 
     logging.info(f'loaded dataset: {len(tokens)} tokens')
 
-    model = load_llama2(model_path, dropout=dropout).to(device)
+    model = load_llama2(model_path, dropout=dropout, compute_dtype=compute_dtype).to(device).to(compute_dtype)
 
     def get_batch(batch_size):
         index = torch.randint(len(tokens) - seq_len, (batch_size,))

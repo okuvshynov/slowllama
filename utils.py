@@ -7,6 +7,13 @@ def device_map(device):
         return 'mps'
     return str(device)
 
+def device_supports_dtype(device, dtype):
+    try:
+        tensor = torch.tensor([1.0, 2.0]).to(device).to(dtype)
+        return True
+    except TypeError as e:
+        return False
+
 global_id_auto = 0
 
 def next_id():
