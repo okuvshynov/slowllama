@@ -55,17 +55,18 @@ class BlackboxDisk(torch.nn.Module):
 
 # same blackbox, but RAM only.
 class BlackboxRAM(torch.nn.Module):
-    def __init__(self, module, _args):
+    def __init__(self, module, args):
         super().__init__()
         # this way torch doesn't count it as a submodule, which is 
         # exactly what we want.
         self.module = [module.to('cpu').to(torch.bfloat16)]
+        self.compute_dtype = args.compute_dtype
 
     def loaded_inner(self):
         return self.module[0]
     
     def load(self, device):
-        return deepcopy(self.module[0]).to(device_map(device))
+        return deepcopy(self.module[0]).to(device_map(device)).to(self.compute_dtype)
 
     def save(self, module):
         self.module = [module.to('cpu').to(torch.bfloat16)]
