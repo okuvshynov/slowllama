@@ -22,10 +22,12 @@ iters = 1000
 device = 'mps' # mps for macbooks
 seq_len = 128
 dropout = 0.01
-batch_size = 16
+batch_size = 4
 lr = 1e-3
+offload_to = 'disk'
 
 # type used for computation. Might be different from storage type (which is bfloat16)
+#compute_dtype = torch.float32 # float32 for macbooks
 compute_dtype = torch.float32 # float32 for macbooks
 
 eval_period = 10
@@ -59,7 +61,7 @@ if __name__ == '__main__':
 
     logging.info(f'loaded dataset: {len(tokens)} tokens')
 
-    model = load_llama2(model_path, dropout=dropout, compute_dtype=compute_dtype).to(device).to(compute_dtype)
+    model = load_llama2(model_path, dropout=dropout, compute_dtype=compute_dtype, offload_location=offload_to).to(device).to(compute_dtype)
 
     def get_batch(batch_size):
         index = torch.randint(len(tokens) - seq_len, (batch_size,))
