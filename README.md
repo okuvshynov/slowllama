@@ -1,14 +1,16 @@
 ## slowllama
 
-Fine-tune Llama2 models, including 70B on Apple M1/M2 devices (for example, Macbook Air!).
+Fine-tune Llama2 models, including 70B on Apple M1/M2 devices (for example, Macbook Air!) or consumer nVidia GPUs.
 
-slowllama is not using any quantization. Instead, it offloads parts of model to SSD on both forward/backward passes. In contrast with training large models from scratch (unattainable) or inference, where we are likely to care about interactivity, we can still get something finetuned if you let it run for a while.
+slowllama is not using any quantization. Instead, it offloads parts of model to SSD or main memory on both forward/backward passes. In contrast with training large models from scratch (unattainable) or inference, where we are likely to care about interactivity, we can still get something finetuned if you let it run for a while.
 
-Current version is using LoRA to limit the updates to a smaller set of parameters. First version supported full finetuning as well, but I decided to remove it for now, more on that below.
+Current version is using LoRA to limit the updates to a smaller set of parameters. First version supported full finetuning as well, but I decided to remove it for now, more on that below. Should be possible to bring it back for main-memory-only offload. On the other hand, if everything fits into memory, there's no need to do whole 'evaluate twice' thing, might just use [fairscale](https://fairscale.readthedocs.io/en/stable/deep_dive/offload.html) instead?
 
 Finetuning is the only focus, there's nothing special done for inference, consider [llama.cpp](https://github.com/ggerganov/llama.cpp).
 
-It should work on CUDA as well, but I didn't do any tests/optimization for that - most likely it'll move things between storage/RAM/GPU more than needed + use wrong types and maybe transform between types. Maybe i hardcoded ```to('mps')``` somewhere. In theory it should be possible to finetune, for example, 70B llama in bfloat16 with LoRA on single more-less recent GPU. See some thoughts/plans in [TODO section](#todo)
+For CUDA-specific experiments, see [report on a10](a10.md).
+
+Code Llama update: after fixing rope_theta configuration it loads, trains, and generates some python code. I haven't tried to do any 'real' fintuning yet.
 
 ### Example
 
@@ -71,7 +73,9 @@ Original llama2 weights are in bfloat16, but mps backend doesn't support that ty
 
 Experimental version of slowllama which can be still found [here](https://github.com/okuvshynov/experiments/tree/5cf944cb1274e577d1e755e6ad1957190d286d9d/split_model) was capable of doing full finetuning and update all weights pretty much the same way. I've temporarily removed that feature to preserve the lifespan of SSDs, as frequent write operations can degrade performance over time. Reading from SSDs isn't an issue, but they do have a write limit. Limit is typically high enough for normal usage, but in the case of full finetunining we'll have to write ~150Gb per one iteration/weight update of llama70, assuming stateless optimizer and no gradient accumulation. With AdamW we'll have to save/update another 150-300Gb (depending on data types used) of optimizer state per iteration. If, for example, we assume 1Pb of writes before SSD will start having issues, even 100 iterations of finetuning would incur significant cost/risk. We can bring full finetuning back if needed though.
 
-There are still remnants of that code in the current version, for example Dropout layers for frozen part of model, which I should clean up. 
+Update:
+For machines with GPUs and large amount of RAM we can skip the disk entirely and offload to RAM only.
+
 
 ### Resource requirements/utilization/limitations
 
@@ -109,19 +113,17 @@ Just a few files with no dependencies other than torch and sentencepiece for tok
 3. [loader.py](loader.py) - manual loading/saving of large llama2 models
 4. [utils.py](utils.py) - small utility functions, including saving/loading random generator state for different devices.
 5. [test_gen.py](test_gen.py) - greedily complete the prompt. Takes base weights + trained LoRA weights as input. Useful for sanity checks.
+6. [blackbox.py](blackbox.py) - module wrapper which offloads the module to disk or main memory.
 
 
 ### TODO:
 
-After some thinking and checking machines with nVidia GPU - on many configurations we should be able to:
-1. Skip SSD storage altogether and just save everything in RAM. If you have 256Gb of RAM we should be able to finetune 70B model in bfloat16; Thus, we need to make it possible/configurable
-2. If we store everything in RAM, we can bring back full finetune. Also need to configure. How do we save snapshots? Still, will only be possible with statless optimizer, need more RAM to store adamw weights. Let's start with LoRA in RAM.
-
 ```
 [ ] merge lora weights with base model weights and export the combined result in original format.
-[ ] check if/how it works on CUDA;
+[x] check if/how it works on CUDA;
 [ ] rope -- double-check the values in original checkpoint vs what's being computed.
-[ ] make lora params (rank, alpha, dropout) easily configurable;
+[x] make lora params (rank, alpha, dropout) easily configurable;
+[ ] for RAM offload 
 [ ] add tests
 [ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
 [ ] tests, cleanup and comments;

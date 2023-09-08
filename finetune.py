@@ -9,12 +9,7 @@ from loader import load_llama2, save_llama2
 sys.path.insert(0, '../llama/llama')
 from tokenizer import Tokenizer
 
-# data to finetune on
-with open('test_data/cubestat.txt') as f:
-    text = f.read()
-prompt = 'Cubestat reports the following metrics: '
 
-model_path = '../llama-2-7b'
 
 # training settings
 seed = 54321
@@ -25,6 +20,8 @@ dropout = 0.01
 batch_size = 4
 lr = 1e-3
 offload_to = 'disk'
+finetune_file = 'test_data/cubestat.txt'
+#finetune_file = 'test_data/somecode.py'
 
 # type used for computation. Might be different from storage type (which is bfloat16)
 #compute_dtype = torch.float32 # float32 for macbooks
@@ -32,6 +29,14 @@ compute_dtype = torch.float32 # float32 for macbooks
 
 eval_period = 10
 gen_tokens = 20
+
+model_path = '../llama-2-7b'
+#model_path = '../CodeLlama-34b-Python'
+
+# data to finetune on
+with open(finetune_file) as f:
+    text = f.read()
+prompt = 'Cubestat reports the following metrics: '
 
 tokenizer_path = os.path.join(model_path, 'tokenizer.model')
 tokenizer = Tokenizer(tokenizer_path)

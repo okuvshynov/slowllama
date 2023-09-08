@@ -32,6 +32,7 @@ class ModelArgs:
     ffn_dim_multiplier: Optional[float] = None
     compute_dtype: torch.dtype = torch.float32
     offload_location: str = 'disk' # 'disk' or 'ram'
+    rope_theta: float = 10000.0
 
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float):
@@ -261,7 +262,7 @@ class Transformer(nn.Module):
         self.output = wrap_blackbox(nn.Linear(params.dim, params.vocab_size, bias=False), params)
 
         # some useful precompute for the RoPE relative positional embeddings
-        freqs_cos, freqs_sin = precompute_freqs_cis(self.params.dim // self.params.n_heads, self.params.max_seq_len)
+        freqs_cos, freqs_sin = precompute_freqs_cis(self.params.dim // self.params.n_heads, self.params.max_seq_len, theta=params.rope_theta)
         self.register_buffer("freqs_cos", freqs_cos, persistent=False)
         self.register_buffer("freqs_sin", freqs_sin, persistent=False)
 
