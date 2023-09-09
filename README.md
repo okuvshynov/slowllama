@@ -121,14 +121,15 @@ Just a few files with no dependencies other than torch and sentencepiece for tok
 ```
 [ ] merge lora weights with base model weights and export the combined result in original format.
 [x] check if/how it works on CUDA;
-[ ] rope -- double-check the values in original checkpoint vs what's being computed.
+[x] rope -- double-check the values in original checkpoint vs what's being computed.
 [x] make lora params (rank, alpha, dropout) easily configurable;
-[ ] for RAM offload 
-[ ] add tests
+[x] try RAM offload 
 [ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
+[ ] combined RAM/disk offload - 200Gb ram is rarity.
 [ ] tests, cleanup and comments;
 [ ] progress tracking for everything;
-[ ] quantization? at least 16 bit?;
+[x] quantization? at least 16 bit?;
+[ ] quantization beyond 16 bit?
 [ ] improve model loading time;
 [ ] configurable weight tying;
 [ ] double check RNG state correctness.
