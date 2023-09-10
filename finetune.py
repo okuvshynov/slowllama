@@ -9,8 +9,6 @@ from loader import load_llama2, save_llama2
 sys.path.insert(0, '../llama/llama')
 from tokenizer import Tokenizer
 
-
-
 # training settings
 seed = 54321
 iters = 1000
@@ -18,14 +16,14 @@ device = 'mps' # mps for macbooks
 seq_len = 128
 dropout = 0.01
 batch_size = 4
-lr = 1e-3
+lr = 1e-4
 offload_to = 'disk'
 finetune_file = 'test_data/cubestat.txt'
 #finetune_file = 'test_data/somecode.py'
 
 # type used for computation. Might be different from storage type (which is bfloat16)
-#compute_dtype = torch.float32 # float32 for macbooks
 compute_dtype = torch.float32 # float32 for macbooks
+#compute_dtype = torch.bfloat16 # bfloat16 for CUDA
 
 eval_period = 10
 gen_tokens = 20
@@ -74,7 +72,8 @@ if __name__ == '__main__':
         y = torch.stack([torch.tensor(tokens[i + 1:i + seq_len + 1]).to(torch.int64) for i in index])
         return x.to(device), y.to(device)
 
-    opt = torch.optim.SGD(model.parameters(), lr=lr)
+    #opt = torch.optim.SGD(model.parameters(), lr=lr)
+    opt = torch.optim.AdamW(model.parameters(), lr=lr)
 
     last_loss = None
     for i in range(iters):
