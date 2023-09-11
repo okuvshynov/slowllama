@@ -4,6 +4,7 @@ import torch
 import logging
 
 from loader import load_llama2, save_llama2
+from plot_lora import log_lora
 
 # use tokenizer from llama
 sys.path.insert(0, '../llama/llama')
@@ -30,6 +31,9 @@ gen_tokens = 20
 
 model_path = '../llama-2-7b'
 #model_path = '../CodeLlama-34b-Python'
+
+log_lora_grad = False
+log_lora_weight = True
 
 # data to finetune on
 with open(finetune_file) as f:
@@ -86,6 +90,11 @@ if __name__ == '__main__':
         # returned loss is a scalar, not variable
         logits, loss = model.manual_loop(X, y)
         opt.step()
+
+        # optional logging of lora weights/gradients
+        if log_lora_grad or log_lora_weight:
+            log_lora(model.lora_layers, log_weights=log_lora_weight, log_grad=log_lora_grad)
+
         logging.info(f'backprop done, loss after forward pass = {loss}')
         if last_loss is None:
             last_loss = loss

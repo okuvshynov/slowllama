@@ -8,7 +8,7 @@ Current version is using LoRA to limit the updates to a smaller set of parameter
 
 Finetuning is the only focus, there's nothing special done for inference, consider [llama.cpp](https://github.com/ggerganov/llama.cpp).
 
-For CUDA-specific experiments, see [report on a10](a10.md).
+For CUDA-specific experiments, see [report on a10](docs/a10.md).
 
 Code Llama update: after fixing rope_theta configuration it loads, trains, and generates some python code. I haven't tried to do any 'real' fintuning yet.
 AdamW update: much better, not that slow anymore.
@@ -133,6 +133,7 @@ Just a few files with no dependencies other than torch and sentencepiece for tok
 4. [utils.py](utils.py) - small utility functions, including saving/loading random generator state for different devices.
 5. [test_gen.py](test_gen.py) - greedily complete the prompt. Takes base weights + trained LoRA weights as input. Useful for sanity checks.
 6. [blackbox.py](blackbox.py) - module wrapper which offloads the module to disk or main memory.
+7. [plot_lora.py](plot_lora.py) - logging utility, writes LoRA weights and gradient distribution to [logfile](docs/lora_weights.md). Requires [fewlines](https://github.com/okuvshynov/fewlines). If fewlines is not installed, does nothing.
 
 
 ### TODO:
