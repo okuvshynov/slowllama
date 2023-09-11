@@ -76,9 +76,7 @@ At ~10 iteration we get the following reasonable output:  _Cubestat reports the 
 
 At ~20 iteration another output is produced:
 
-_0 - Cubestat reports the following metrics:
-
-CPU utilization: Efficiency and Performance cores. Shows as percentage._
+_0 - Cubestat reports the following metrics: CPU utilization: Efficiency and Performance cores. Shows as percentage._
 
 ### How does it work?
 For all versions - 7B, 13B and 70B the process is roughly the same.
