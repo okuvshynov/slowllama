@@ -2,6 +2,7 @@ import os
 import sys
 import torch
 import logging
+import requests
 
 from loader import load_llama2, save_llama2
 from plot_lora import log_lora
@@ -16,29 +17,40 @@ iters = 1000
 device = 'mps' # mps for macbooks
 seq_len = 128
 dropout = 0.01
-batch_size = 4
+batch_size = 16
 lr = 1e-4
 offload_to = 'disk'
-finetune_file = 'test_data/cubestat.txt'
-#finetune_file = 'test_data/somecode.py'
+finetune_code = True
+finetune_text = False
 
 # type used for computation. Might be different from storage type (which is bfloat16)
 compute_dtype = torch.float32 # float32 for macbooks
 #compute_dtype = torch.bfloat16 # bfloat16 for CUDA
 
 eval_period = 10
-gen_tokens = 20
-
-model_path = '../llama-2-7b'
-#model_path = '../CodeLlama-34b-Python'
+gen_tokens = 32
 
 log_lora_grad = False
 log_lora_weight = True
 
-# data to finetune on
-with open(finetune_file) as f:
-    text = f.read()
-prompt = 'Cubestat reports the following metrics: '
+if finetune_code:
+    model_path = '../CodeLlama-34b-Python'
+    text = requests.get('https://raw.githubusercontent.com/okuvshynov/fewlines/main/fewlines/bar.py').text
+    prompt = """
+        from fewlines import bar
+
+        values = {'A': [1, 2, 3], 'B': [1, 1, 1]}
+        # Plot a bar chart of values using fewlines library with green colorscheme:
+
+    """
+
+if finetune_text:
+    model_path = '../llama-2-7b'
+    finetune_file = 'test_data/cubestat.txt'
+    # data to finetune on
+    with open(finetune_file) as f:
+        text = f.read()
+    prompt = 'Cubestat reports the following metrics: '
 
 tokenizer_path = os.path.join(model_path, 'tokenizer.model')
 tokenizer = Tokenizer(tokenizer_path)
@@ -85,7 +97,7 @@ if __name__ == '__main__':
         X, y = get_batch(batch_size)
         opt.zero_grad()
         if i % eval_period == 0:
-            greedy_gen(prompt, max_new_tokens=10)
+            greedy_gen(prompt, max_new_tokens=gen_tokens)
         # both forward and backward passes are here.
         # returned loss is a scalar, not variable
         logits, loss = model.manual_loop(X, y)
