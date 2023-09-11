@@ -11,6 +11,7 @@ Finetuning is the only focus, there's nothing special done for inference, consid
 For CUDA-specific experiments, see [report on a10](a10.md).
 
 Code Llama update: after fixing rope_theta configuration it loads, trains, and generates some python code. I haven't tried to do any 'real' fintuning yet.
+AdamW update: much better, not that slow anymore.
 
 ### Example
 
@@ -27,6 +28,7 @@ In order to fine-tune llama2 model we need to:
     /llama/...     # <-- this is Meta's llama2 repository.
     /slowllama/... # <- this repo
 ```
+3. codellama is essentially the same
 
 Let's start with a [tiny example](test_data/cubestat.txt). It is an intro to the description of another open-source project - [cubestat](https://github.com/okuvshynov/cubestat). Text is short enough to just be included as part of the prompt, but it's ok as an illustration and you can read it in seconds youself. As I just published that project recently, there's no way original llama would know anything about it. 
 
@@ -37,25 +39,46 @@ Try it out:
 python test_gen.py ../llama-2-7b mps
 ```
 
-Now let's finetune the 7b model. [finetune.py](finetune.py) is a very simple script which trains LoRA weights based on the plaintext data. There are some settings you could change here, like sequence length, batch size, learning rate, dropout rate, number of iterations. Current settings are pretty much a guess, change this if desired. Base model path and path to Meta's llama repository are hardcoded in that script as well, assuming folder structure above. Adjust accordingly.
+Now let's finetune the 7b model. [finetune.py](finetune.py) is a very simple script which trains LoRA weights based on the plaintext data. There are some settings you could change here, like sequence length, batch size, learning rate, dropout rate, number of iterations. Current settings are pretty much a guess, change this if desired. Base model path and path to Meta's llama repository are hardcoded in that script as well, assuming folder structure above. Adjust accordingly. Currently uses AdamW optimizer.
 
 ```
 python finetune.py
 ```
 
 Here's train dataset loss:
+```
+2023-09-10 22:05:35,569 backprop done, loss after forward pass = 2.9539270401000977
+2023-09-10 22:06:08,022 backprop done, loss after forward pass = 2.9073102474212646
+2023-09-10 22:06:40,223 backprop done, loss after forward pass = 2.7192320823669434
+2023-09-10 22:07:12,468 backprop done, loss after forward pass = 2.7223477363586426
+2023-09-10 22:07:44,626 backprop done, loss after forward pass = 2.5889995098114014
+2023-09-10 22:08:16,899 backprop done, loss after forward pass = 2.4459967613220215
+2023-09-10 22:08:49,072 backprop done, loss after forward pass = 2.3632657527923584
+2023-09-10 22:09:21,335 backprop done, loss after forward pass = 2.250361442565918
+2023-09-10 22:09:53,511 backprop done, loss after forward pass = 2.165428638458252
+2023-09-10 22:10:25,738 backprop done, loss after forward pass = 2.031874656677246
+2023-09-10 22:13:45,794 backprop done, loss after forward pass = 1.8926434516906738
+2023-09-10 22:14:18,049 backprop done, loss after forward pass = 1.7222942113876343
+2023-09-10 22:14:50,243 backprop done, loss after forward pass = 1.58726966381073
+2023-09-10 22:15:22,405 backprop done, loss after forward pass = 1.4983913898468018
+2023-09-10 22:15:54,598 backprop done, loss after forward pass = 1.296463131904602
+2023-09-10 22:16:26,909 backprop done, loss after forward pass = 1.3328818082809448
+2023-09-10 22:16:59,031 backprop done, loss after forward pass = 1.0978631973266602
+2023-09-10 22:17:31,200 backprop done, loss after forward pass = 1.018444538116455
+2023-09-10 22:18:03,406 backprop done, loss after forward pass = 0.8421685099601746
+2023-09-10 22:18:35,673 backprop done, loss after forward pass = 0.7168515920639038
+2023-09-10 22:21:55,482 backprop done, loss after forward pass = 0.7870235443115234
+```
 
-![train loss](static/train_loss.png)
+I didn't add a validation set for this data, instead I just checked what would the fine-tuned model produce for the same prompt.
 
-I didn't add a validation set for this data and I should have looked at these spikes. Instead I just checked what would the fine-tuned model produce for the same prompt.
+At ~10 iteration we get the following reasonable output:  _Cubestat reports the following metrics: 1. CPU usage, 2. Memory usage, 3. Disk usage_
 
-At ~100 iteration we get the following:  _1. The number of times the application was launched. 2. The number of times the application was closed._
+At ~20 iteration another output is produced:
 
-At ~400 iteration much better output is produced: 
+_0 - Cubestat reports the following metrics:
 
-_Cubestat reports the following metrics: 1. CPU utilization. 2 GPU utilization. 3 Memory usage. 4 Network interface utilization._
-
-Getting here took ~15h on Mac Mini M1.
+CPU utilization: Efficiency and Performance cores. Shows as percentage._
 
 ### How does it work?
 For all versions - 7B, 13B and 70B the process is roughly the same.
@@ -97,12 +120,10 @@ If it is that slow, what's the point?
 
 0. Maybe there's none;
 1. The use-case is not doing research/iterate. The way I thought about it was to finetune something based on small amount of new local data. Something where it would be fine to just let it run finetuning overnight every day.
-2. Training settings are suboptimal, we can try optimizer with momentum, different learning rate schedule, batch size, sequence length, lora rank, etc.
-3. There are some further optimizations: prefetch the weights and inputs, save inputs asynchronously
-4. The tests here were done on oldest available M1. Modern higher-end laptops with M2 Max should have ~5x GPU performance, and upcoming models might be even more powerful.
-5. Computation is done in float32. MPS device doesn't support bfloat16, but supports float16 - we can look at that. 
-6. This approach can be used not only for original llama2 by Meta, but for smaller models with similar architecture, for example ones produced by [llama2.c](https://github.com/karpathy/llama2.c). These might just fit into memory though.
-7. If we can amortize the IO well on machines with single nVidia GPU and fast storage we should be able to finetune large models in reasonable time. Fast storage is cheaper than H100.
+2. There are some further optimizations: prefetch the weights and inputs, save inputs asynchronously
+3. The tests here were done on oldest available M1. Modern higher-end laptops with M2 Max should have ~5x GPU performance, and upcoming models might be even more powerful.
+4. Computation is done in float32. MPS device doesn't support bfloat16, but supports float16 - we can look at that. 
+5. This approach can be used not only for original llama2 by Meta, but for smaller models with similar architecture, for example ones produced by [llama2.c](https://github.com/karpathy/llama2.c). These might just fit into memory though.
 
 ### Project structure
 
@@ -123,7 +144,9 @@ Just a few files with no dependencies other than torch and sentencepiece for tok
 [x] check if/how it works on CUDA;
 [x] rope -- double-check the values in original checkpoint vs what's being computed.
 [x] make lora params (rank, alpha, dropout) easily configurable;
-[x] try RAM offload 
+[x] try RAM offload
+[x] AdamW
+[ ] logging weight/gradient distribution
 [ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
 [ ] combined RAM/disk offload - 200Gb ram is rarity.
 [ ] tests, cleanup and comments;
