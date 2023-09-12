@@ -1,10 +1,10 @@
 ## slowllama
 
-Fine-tune Llama2 models, including 70B on Apple M1/M2 devices (for example, Macbook Air!) or consumer nVidia GPUs.
+Fine-tune Llama2 and CodeLLama models, including 70B on Apple M1/M2 devices (for example, Macbook Air!) or consumer nVidia GPUs.
 
 slowllama is not using any quantization. Instead, it offloads parts of model to SSD or main memory on both forward/backward passes. In contrast with training large models from scratch (unattainable) or inference, where we are likely to care about interactivity, we can still get something finetuned if you let it run for a while.
 
-Current version is using LoRA to limit the updates to a smaller set of parameters. First version supported full finetuning as well, but I decided to remove it for now, more on that below. Should be possible to bring it back for main-memory-only offload. On the other hand, if everything fits into memory, there's no need to do whole 'evaluate twice' thing, might just use [fairscale](https://fairscale.readthedocs.io/en/stable/deep_dive/offload.html) instead?
+Current version is using LoRA to limit the updates to a smaller set of parameters. First version supported full finetuning as well, but I decided to remove it for now, more on that below. 
 
 Finetuning is the only focus, there's nothing special done for inference, consider [llama.cpp](https://github.com/ggerganov/llama.cpp).
 
@@ -92,10 +92,7 @@ Backward pass is a little more tricky, in a way we have to run forward pass twic
 
 Original llama2 weights are in bfloat16, but mps backend doesn't support that type natively, so we do computation in float32 instead.
 
-Experimental version of slowllama which can be still found [here](https://github.com/okuvshynov/experiments/tree/5cf944cb1274e577d1e755e6ad1957190d286d9d/split_model) was capable of doing full finetuning and update all weights pretty much the same way. I've temporarily removed that feature to preserve the lifespan of SSDs, as frequent write operations can degrade performance over time. Reading from SSDs isn't an issue, but they do have a write limit. Limit is typically high enough for normal usage, but in the case of full finetunining we'll have to write ~150Gb per one iteration/weight update of llama70, assuming stateless optimizer and no gradient accumulation. With AdamW we'll have to save/update another 150-300Gb (depending on data types used) of optimizer state per iteration. If, for example, we assume 1Pb of writes before SSD will start having issues, even 100 iterations of finetuning would incur significant cost/risk. We can bring full finetuning back if needed though.
-
-Update:
-For machines with GPUs and large amount of RAM we can skip the disk entirely and offload to RAM only.
+Experimental version of slowllama which can be still found [here](https://github.com/okuvshynov/experiments/tree/5cf944cb1274e577d1e755e6ad1957190d286d9d/split_model) was capable of doing full finetuning and update all weights pretty much the same way. I've temporarily removed that feature to preserve the lifespan of SSDs, as frequent write operations can degrade performance over time. Reading from SSDs isn't an issue, but they do have a write limit. Limit is typically high enough for normal usage, but in the case of full finetunining we'll have to write ~150Gb per one iteration/weight update of llama70, assuming stateless optimizer and no gradient accumulation. With AdamW we'll have to save/update another 150-300Gb (depending on data types used) of optimizer state per iteration. If, for example, we assume 1Pb of writes before SSD will start having issues, even 100 iterations of finetuning would incur significant cost/risk. For machines with GPUs and large amount of RAM we can skip the disk entirely and offload to RAM only. It should be possible to bring full finetuning back for main-memory-only offload. On the other hand, if everything fits into memory, there's no need to do whole 'evaluate twice' thing, might just use [fairscale](https://fairscale.readthedocs.io/en/stable/deep_dive/offload.html) instead?
 
 
 ### Resource requirements/utilization/limitations
@@ -145,7 +142,7 @@ Just a few files with no dependencies other than torch and sentencepiece for tok
 [x] make lora params (rank, alpha, dropout) easily configurable;
 [x] try RAM offload
 [x] AdamW
-[ ] logging weight/gradient distribution
+[x] logging weight/gradient distribution
 [ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
 [ ] combined RAM/disk offload - 200Gb ram is rarity.
 [ ] tests, cleanup and comments;

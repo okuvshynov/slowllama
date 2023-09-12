@@ -88,7 +88,6 @@ if __name__ == '__main__':
         y = torch.stack([torch.tensor(tokens[i + 1:i + seq_len + 1]).to(torch.int64) for i in index])
         return x.to(device), y.to(device)
 
-    #opt = torch.optim.SGD(model.parameters(), lr=lr)
     opt = torch.optim.AdamW(model.parameters(), lr=lr)
 
     last_loss = None
@@ -114,5 +113,3 @@ if __name__ == '__main__':
             last_loss = loss
             logging.info(f'saving snapshot')
             torch.save(model.state_dict(), f'data/state_dict_{i}.pth')
- 
-    #save_llama2(model, new_model_path, model_path, shards=shards_to_save)
