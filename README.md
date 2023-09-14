@@ -98,22 +98,81 @@ Original llama2 weights are in bfloat16, but mps backend doesn't support that ty
 
 Experimental version of slowllama which can be still found [here](https://github.com/okuvshynov/experiments/tree/5cf944cb1274e577d1e755e6ad1957190d286d9d/split_model) was capable of doing full finetuning and update all weights pretty much the same way. I've temporarily removed that feature to preserve the lifespan of SSDs, as frequent write operations can degrade performance over time. Reading from SSDs isn't an issue, but they do have a write limit. Limit is typically high enough for normal usage, but in the case of full finetunining we'll have to write ~150Gb per one iteration/weight update of llama70, assuming stateless optimizer and no gradient accumulation. With AdamW we'll have to save/update another 150-300Gb (depending on data types used) of optimizer state per iteration. If, for example, we assume 1Pb of writes before SSD will start having issues, even 100 iterations of finetuning would incur significant cost/risk. For machines with GPUs and large amount of RAM we can skip the disk entirely and offload to RAM only. It should be possible to bring full finetuning back for main-memory-only offload. On the other hand, if everything fits into memory, there's no need to do whole 'evaluate twice' thing, might just use [fairscale](https://fairscale.readthedocs.io/en/stable/deep_dive/offload.html) instead?
 
-### Resource requirements/utilization/limitations
+### More experiments 
 
-Llama2 7B finetune on M1 Mini:
+#### Llama2 7B finetune on M1 Mini (16Gb memory):
 
 ![finetune on mac mini](static/finetune_m1_7b.png)
 
-Here we can see resource utilization for 1 full iteration on 7B model - forward and manual backward passes. A few notes:
+Here we can see resource utilization for 1 full iteration on 7B model - forward and manual backward passes. Each solumn represents 1 second. A few notes:
 1. GPU is reasonably well utilized;
 2. First forward pass has lower GPU utilization and spends more time on IO as we need to both read weights and write cached inputs/outputs
 3. Backward (combined?) pass achieves very high GPU utilization, close to 100%
 4. As we move along layers back and forth, right after each 'direction switch' we process layers in LIFO order. Thus in the beginning of both forward and backward pass we don't have to access disk, weights are being cached and we don't see disk reads.
 
-70B finetune on M1 Mini. I didn't have enough free space on disk to store both original weights (140Gb) + weights in sequential format we use (another 140Gb). In order to still be able to finetune this model, I stored original weights on much slower external SD card (as we need to read them only once) and weights in sequential format on internal SSD. 
+#### Llama2 70B finetune on M1 Mini (16Gb memory)
+![finetune 70b model](static/llama2_70b_m1.png)
+
+The chart here has different granularity - each column is 30 seconds. Input data was also different - it was the readme file you are reading now.
+I didn't have enough free space on disk to store both original weights (140Gb) + weights in sequential format we use (another 140Gb). In order to still be able to finetune this model, I stored original weights on much slower external SD card (as we need to read them only once) and weights in sequential format on internal SSD. 
 With batch size = 16 and sequence length = 128 it was taking ~25-30 min per iteration.
 
-In this situation we might be able to benefit from module prefetching, assuming we have enough memory for storing 2 layers. Memory utilization peaked at around 80% of 16Gb.
+As we can see, GPU utilization doesn't look that great - we might be able to benefit from module prefetching, assuming we have enough memory for storing 2 layers. Memory utilization peaked at around 80% of 16Gb. 
+
+Loss over time:
+
+```
+2023-09-13 17:30:28,731 backprop done, loss after forward pass = 2.431253433227539
+2023-09-13 18:00:00,133 backprop done, loss after forward pass = 2.604712963104248
+2023-09-13 18:29:36,473 backprop done, loss after forward pass = 2.6277880668640137
+2023-09-13 19:00:40,463 backprop done, loss after forward pass = 2.408756971359253
+2023-09-13 19:29:55,974 backprop done, loss after forward pass = 2.6121537685394287
+2023-09-13 19:59:04,849 backprop done, loss after forward pass = 2.428431987762451
+2023-09-13 20:27:03,760 backprop done, loss after forward pass = 2.4040215015411377
+2023-09-13 20:55:56,969 backprop done, loss after forward pass = 2.158071279525757
+2023-09-13 21:25:04,615 backprop done, loss after forward pass = 2.3459620475769043
+2023-09-13 21:54:07,128 backprop done, loss after forward pass = 2.2933709621429443
+2023-09-13 23:18:57,588 backprop done, loss after forward pass = 2.273494243621826
+2023-09-13 23:48:05,310 backprop done, loss after forward pass = 2.4055371284484863
+2023-09-14 00:17:19,113 backprop done, loss after forward pass = 2.2604546546936035
+2023-09-14 00:46:31,872 backprop done, loss after forward pass = 2.552386522293091
+2023-09-14 01:15:45,731 backprop done, loss after forward pass = 2.297588586807251
+2023-09-14 01:44:51,640 backprop done, loss after forward pass = 2.1217401027679443
+2023-09-14 02:14:09,033 backprop done, loss after forward pass = 1.9815442562103271
+2023-09-14 02:43:09,114 backprop done, loss after forward pass = 2.020181179046631
+2023-09-14 03:12:17,966 backprop done, loss after forward pass = 2.0041542053222656
+2023-09-14 03:41:20,649 backprop done, loss after forward pass = 1.9396495819091797
+2023-09-14 05:06:31,414 backprop done, loss after forward pass = 2.1592249870300293
+2023-09-14 05:35:39,080 backprop done, loss after forward pass = 1.976989984512329
+2023-09-14 06:04:57,859 backprop done, loss after forward pass = 1.7638890743255615
+2023-09-14 06:34:06,953 backprop done, loss after forward pass = 1.9829202890396118
+2023-09-14 07:03:18,661 backprop done, loss after forward pass = 1.754631519317627
+2023-09-14 07:32:26,179 backprop done, loss after forward pass = 2.027863025665283
+2023-09-14 08:01:37,546 backprop done, loss after forward pass = 1.8579339981079102
+2023-09-14 08:30:41,689 backprop done, loss after forward pass = 1.7934837341308594
+2023-09-14 08:59:55,921 backprop done, loss after forward pass = 1.794022798538208
+2023-09-14 09:28:59,690 backprop done, loss after forward pass = 1.750269889831543
+2023-09-14 10:56:19,282 backprop done, loss after forward pass = 1.4310824871063232
+2023-09-14 11:25:28,462 backprop done, loss after forward pass = 1.6895856857299805
+2023-09-14 11:54:39,973 backprop done, loss after forward pass = 1.5074403285980225
+2023-09-14 12:23:42,604 backprop done, loss after forward pass = 1.6695624589920044
+2023-09-14 12:53:00,535 backprop done, loss after forward pass = 1.4220315217971802
+2023-09-14 13:22:15,685 backprop done, loss after forward pass = 1.5720497369766235
+2023-09-14 13:51:30,744 backprop done, loss after forward pass = 1.544579267501831
+2023-09-14 14:20:44,482 backprop done, loss after forward pass = 1.2813694477081299
+2023-09-14 14:50:03,384 backprop done, loss after forward pass = 1.2990479469299316
+2023-09-14 15:19:09,620 backprop done, loss after forward pass = 1.0500637292861938
+```
+
+We used prompt 'slowllama is a ', and here you can see the completions:
+* before any weight update: _slowllama is a 24 year old (DOB: December 25, 1994) pure-blood witch living in Hogwarts. She_
+* after 10 iterations: _slowllama is a 24 year old (DOB: December 25, 1994) pure-blood witch living in Hogwarts. She_
+* after 20 iterations: _slowllama is a 70B model trained on the same data as llama.70b, but with a different training setup._
+* after 30 iterations: _slowllama is a 2022 fork of llama2, which is a 2021 fork of llama, which is a 2020 fork_
+* after 40 iterations: _slowllama is a 2-stage finetuning implementation for llama2._
+
+Current setup is probably too slow for 70B model finetuning on old mac mini M1. It would be interesting to try it on more recent hardware (say, M2 Max / M2 Pro), implement prefetch/async save and see how it's going to work.
+
 
 ### Project structure
 
@@ -131,13 +190,13 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 
 ```
 [ ] merge lora weights with base model weights and export the combined result in original format.
+[ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
 [x] check if/how it works on CUDA;
 [x] rope -- double-check the values in original checkpoint vs what's being computed.
 [x] make lora params (rank, alpha, dropout) easily configurable;
 [x] try RAM offload
 [x] AdamW
 [x] logging weight/gradient distribution
-[ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
 [ ] combined RAM/disk offload - 200Gb ram is rarity.
 [ ] tests, cleanup and comments;
 [ ] progress tracking for everything;
