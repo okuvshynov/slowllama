@@ -2,7 +2,6 @@ import os
 import sys
 import torch
 import logging
-import requests
 
 from loader import load_llama2, save_llama2
 from plot_lora import log_lora
@@ -20,8 +19,6 @@ dropout = 0.01
 batch_size = 16
 lr = 1e-4
 offload_to = 'disk'
-finetune_code = True
-finetune_text = False
 
 # type used for computation. Might be different from storage type (which is bfloat16)
 compute_dtype = torch.float32 # float32 for macbooks
@@ -33,24 +30,13 @@ gen_tokens = 32
 log_lora_grad = False
 log_lora_weight = True
 
-if finetune_code:
-    model_path = '../CodeLlama-34b-Python'
-    text = requests.get('https://raw.githubusercontent.com/okuvshynov/fewlines/main/fewlines/bar.py').text
-    prompt = """
-        from fewlines import bar
+model_path = '/Volumes/LLAMAS//llama-2-70b'
+finetune_file = './README.md'
+prompt = 'slowllama is a '
 
-        values = {'A': [1, 2, 3], 'B': [1, 1, 1]}
-        # Plot a bar chart of values using fewlines library with green colorscheme:
-
-    """
-
-if finetune_text:
-    model_path = '../llama-2-7b'
-    finetune_file = 'test_data/cubestat.txt'
-    # data to finetune on
-    with open(finetune_file) as f:
-        text = f.read()
-    prompt = 'Cubestat reports the following metrics: '
+# data to finetune on
+with open(finetune_file) as f:
+    text = f.read()
 
 tokenizer_path = os.path.join(model_path, 'tokenizer.model')
 tokenizer = Tokenizer(tokenizer_path)
