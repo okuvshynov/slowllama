@@ -1,6 +1,6 @@
 ## slowllama
 
-Fine-tune Llama2 and CodeLLama models, including 70B on Apple M1/M2 devices (for example, Macbook Air!) or consumer nVidia GPUs.
+Fine-tune Llama2 and CodeLLama models, including 70B/35B on Apple M1/M2 devices (for example, Macbook Air or Mac Mini) or consumer nVidia GPUs.
 
 slowllama is not using any quantization. Instead, it offloads parts of model to SSD or main memory on both forward/backward passes. In contrast with training large models from scratch (unattainable) or inference, where we are likely to care about interactivity, we can still get something finetuned if you let it run for a while.
 
@@ -10,16 +10,12 @@ Finetuning is the only focus, there's nothing special done for inference, consid
 
 For CUDA-specific experiments, see [report on a10](docs/a10.md).
 
-Code Llama update: after fixing rope_theta configuration it loads, trains, and generates some python code. I haven't tried to do any 'real' fintuning yet.
-
-AdamW update: much better, not that slow anymore.
-
 ### Example
 
 Tests were done on Apple M1 with 16Gb memory and Apple M2 with 24Gb memory. 
 
 In order to fine-tune llama2 model we need to:
-1. Install dependencies: ```pip install torch sentencepiece numpy``` or ```pip3 install torch sentencepiece numpy```. Optional: install ```pip install fewlines``` for [weight/gradient distribution logging](docs/lora_weights.md).
+1. Install dependencies: ```pip install torch sentencepiece numpy```. Optional: install ```pip install fewlines``` for [weight/gradient distribution logging](docs/lora_weights.md).
 2. Clone [llama2](https://github.com/facebookresearch/llama) and follow instructions to download the models. The script will download tokenizer as well. ```tokenizer.model``` should be put into the same directory as llama model itself. Use [codellama](https://github.com/facebookresearch/codellama) for CodeLLama models. Example folder structure could look like:
 ```
 /parent/
@@ -91,20 +87,20 @@ Doing forward path is easy - we just load modules when we need and pass the outp
 
 Backward pass is a little more tricky, in a way we have to run forward pass twice. The way it's [currently implemented](https://github.com/okuvshynov/slowllama/blob/main/blackbox_model.py#L351) is:
 1. Do a forward pass while also saving inputs to each offloaded block to the SSD. The goal of the first forward pass is to compute the final loss and cache inputs to each offloaded module. 
-2. Then, do a manual backward gradient propagation. We start from the last module, re-run each module (forward, to build autograd graph) with the input we cached on step (1) again. After that we run backward pass within that block only, and pass the gradient for the input to the next (previous?) module. As we use LoRA, only LoRA weights are being updated. LoRA weights are not part of the original model and are not offloaded to disk. Important: we also need to save and restore random number generation state before evaluating each offloaded module. During training we use dropout, and randomly switched off neurons should be the same on both forward passes.
+2. Then, do a manual backward gradient propagation. We start from the last module, re-run each module (forward, to build autograd graph) with the input we cached on step (1) again. After that we run backward pass within that block only, and pass the gradient for the input to the next (previous?) module. As we use LoRA, only LoRA weights are being updated. LoRA weights are not offloaded to disk, always staying on RAM/GPU. Important: we also need to save and restore random number generation state before evaluating each offloaded module. During training we use dropout, and randomly switched off neurons should be the same on both forward passes.
 3. After that we run optimizer step on LoRA weights and save them separately if needed.
 
 Original llama2 weights are in bfloat16, but mps backend doesn't support that type natively, so we do computation in float32 instead.
 
-Experimental version of slowllama which can be still found [here](https://github.com/okuvshynov/experiments/tree/5cf944cb1274e577d1e755e6ad1957190d286d9d/split_model) was capable of doing full finetuning and update all weights pretty much the same way. I've temporarily removed that feature to preserve the lifespan of SSDs, as frequent write operations can degrade performance over time. Reading from SSDs isn't an issue, but they do have a write limit. Limit is typically high enough for normal usage, but in the case of full finetunining we'll have to write ~150Gb per one iteration/weight update of llama70, assuming stateless optimizer and no gradient accumulation. With AdamW we'll have to save/update another 150-300Gb (depending on data types used) of optimizer state per iteration. If, for example, we assume 1Pb of writes before SSD will start having issues, even 100 iterations of finetuning would incur significant cost/risk. For machines with GPUs and large amount of RAM we can skip the disk entirely and offload to RAM only. It should be possible to bring full finetuning back for main-memory-only offload. On the other hand, if everything fits into memory, there's no need to do whole 'evaluate twice' thing, might just use [fairscale](https://fairscale.readthedocs.io/en/stable/deep_dive/offload.html) instead?
+Experimental version of slowllama which can be still found [here](https://github.com/okuvshynov/experiments/tree/5cf944cb1274e577d1e755e6ad1957190d286d9d/split_model) was capable of doing full finetuning and update all weights pretty much the same way. I've temporarily removed that feature to preserve the lifespan of SSDs, as frequent write operations can degrade performance over time. Reading from SSDs isn't an issue, but they do have a write limit. Limit is typically high enough for normal usage, but in the case of full finetunining we'll have to write ~150Gb per one iteration/weight update of 70B variant, assuming stateless optimizer and no gradient accumulation. With AdamW we'll have to save/update another 150Gb more of optimizer state per iteration. If, for example, we assume 1Pb of writes before SSD will start having issues, even 100 iterations of finetuning would incur significant cost/risk. For machines with GPUs and large amount of RAM we can skip the disk entirely and offload to RAM only. It should be possible to bring full finetuning back for main-memory-only offload. On the other hand, if everything fits into memory, there's no need to do whole 'evaluate twice' thing, might just use [fairscale](https://fairscale.readthedocs.io/en/stable/deep_dive/offload.html) instead and only move tensors between GPU/CPU.
 
-### More experiments 
+### Experiments 
 
 #### Llama2 7B finetune on M1 Mini (16Gb memory):
 
 ![finetune on mac mini](static/finetune_m1_7b.png)
 
-Here we can see resource utilization for 1 full iteration on 7B model - forward and manual backward passes. Each solumn represents 1 second. A few notes:
+Here we can see resource utilization for 1 full iteration on 7B model - forward and manual backward passes. Each column == 1 second. A few notes:
 1. GPU is reasonably well utilized;
 2. First forward pass has lower GPU utilization and spends more time on IO as we need to both read weights and write cached inputs/outputs
 3. Backward (combined?) pass achieves very high GPU utilization, close to 100%
@@ -113,11 +109,11 @@ Here we can see resource utilization for 1 full iteration on 7B model - forward 
 #### Llama2 70B finetune on M1 Mini (16Gb memory)
 ![finetune 70b model](static/llama2_70b_m1.png)
 
-The chart here has different granularity - each column is 30 seconds. Input data was also different - it was the readme file you are reading now.
-I didn't have enough free space on disk to store both original weights (140Gb) + weights in sequential format we use (another 140Gb). In order to still be able to finetune this model, I stored original weights on much slower external SD card (as we need to read them only once) and weights in sequential format on internal SSD. 
+The chart here has different granularity - each column is 30 seconds. Input data was also different - it is the readme file you are reading now.
+I didn't have enough free space on disk to store both original weights (140Gb) + weights in sequential format we use (another 140Gb). In order to still be able to finetune this model, I stored original weights on much slower external SD card, as we need to read them only once. Weights in sequential format on fast internal SSD. 
 With batch size = 16 and sequence length = 128 it was taking ~25-30 min per iteration.
 
-As we can see, GPU utilization doesn't look that great - we might be able to benefit from module prefetching, assuming we have enough memory for storing 2 layers. Memory utilization peaked at around 80% of 16Gb. 
+As we can see, GPU utilization doesn't look that great - we might be able to benefit from prefetching next transformer block, assuming we have enough memory for storing 2 layers. Memory utilization peaked at around 80% of 16Gb. 
 
 Loss over time:
 
@@ -173,7 +169,6 @@ We used prompt 'slowllama is a ', and here you can see the completions:
 
 Current setup is probably too slow for 70B model finetuning on old mac mini M1. It would be interesting to try it on more recent hardware (say, M2 Max / M2 Pro), implement prefetch/async save and see how it's going to work.
 
-
 ### Project structure
 
 Just a few files with no dependencies other than torch, numpy and sentencepiece for tokenizer.
@@ -197,7 +192,7 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 [x] try RAM offload
 [x] AdamW
 [x] logging weight/gradient distribution
-[ ] combined RAM/disk offload - 200Gb ram is rarity.
+[ ] combined RAM/disk offload - 200Gb RAM is rarity.
 [ ] tests, cleanup and comments;
 [ ] progress tracking for everything;
 [x] quantization? at least 16 bit?;
