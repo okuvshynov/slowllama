@@ -7,7 +7,6 @@ import glob
 import logging
 
 from blackbox_model import Transformer, ModelArgs
-from utils import peak_rss_mb
 
 vocab_size = 32000
 

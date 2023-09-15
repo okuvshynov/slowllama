@@ -6,6 +6,7 @@
 # - simplify init/generation as we only use it for fine-tuning experiments
 # - manual backprop 
 # - support for ffn_dim_multiplier which llama2-70b uses
+# - LoRA
 
 import math
 from dataclasses import dataclass
@@ -28,11 +29,14 @@ class ModelArgs:
     multiple_of: int = 256  # make SwiGLU hidden layer size multiple of large power of 2
     norm_eps: float = 1e-5
     max_seq_len: int = 2048
-    dropout: float = 0.0
+    dropout: float = 0.0 # unless we bring back 
     ffn_dim_multiplier: Optional[float] = None
     compute_dtype: torch.dtype = torch.float32
     offload_location: str = 'disk' # 'disk' or 'ram'
     rope_theta: float = 10000.0
+    lora_rank: int = 8
+    lora_alpha: int = 64
+    lora_dropout: float = 0.05
 
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float):
@@ -221,7 +225,7 @@ class TransformerBlock(nn.Module):
         return out
     
 class LoRA(nn.Module):
-    def __init__(self, original_layer, rank=8, alpha=64, dropout=0.05):
+    def __init__(self, original_layer, rank, alpha, dropout):
         super().__init__()
         n, m = original_layer.weight.shape
         self.A = nn.Linear(m, rank, bias=False)
@@ -250,8 +254,8 @@ class Transformer(nn.Module):
         self.lora_layers = []
         for layer_id in range(params.n_layers):
             block = TransformerBlock(layer_id, params)
-            q_lora = LoRA(block.attention.wq).to(params.compute_dtype)
-            v_lora = LoRA(block.attention.wv).to(params.compute_dtype)
+            q_lora = LoRA(block.attention.wq, rank=params.lora_rank, alpha=params.lora_alpha, dropout=params.lora_dropout).to(params.compute_dtype)
+            v_lora = LoRA(block.attention.wv, rank=params.lora_rank, alpha=params.lora_alpha, dropout=params.lora_dropout).to(params.compute_dtype)
             self.lora_layers.append({ 'q_lora': q_lora, 'v_lora': v_lora})
             self.add_module(f'q_lora_{layer_id}', q_lora)
             self.add_module(f'v_lora_{layer_id}', v_lora)
@@ -341,7 +345,7 @@ class Transformer(nn.Module):
         norm_out = norm_out.detach()
         norm_out.requires_grad = True
 
-        # TODO: micro-optimization: as output is last layer, we can skip loading it second time 
+        # TODO: micro-optimization: as output is last layer, we can skip loading and running it second time 
         logits = self.output(norm_out)
         logits = logits.detach()
         logits.requires_grad = True

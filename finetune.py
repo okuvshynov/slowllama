@@ -15,7 +15,6 @@ seed = 54321
 iters = 1000
 device = 'mps' # mps for macbooks
 seq_len = 128
-dropout = 0.01
 batch_size = 16
 lr = 1e-4
 offload_to = 'disk'
@@ -30,7 +29,7 @@ gen_tokens = 32
 log_lora_grad = False
 log_lora_weight = True
 
-model_path = '/Volumes/LLAMAS//llama-2-70b'
+model_path = '../llama-2-7b'
 finetune_file = './README.md'
 prompt = 'slowllama is a '
 
@@ -41,7 +40,7 @@ with open(finetune_file) as f:
 tokenizer_path = os.path.join(model_path, 'tokenizer.model')
 tokenizer = Tokenizer(tokenizer_path)
 
-def greedy_gen(prompt, max_new_tokens=50):
+def greedy_gen(prompt, iter, max_new_tokens=50):
     tokens = torch.tensor(tokenizer.encode(prompt, True, False)).view(1, -1).to(device)
     model.eval()
     for _ in range(max_new_tokens):
@@ -49,11 +48,12 @@ def greedy_gen(prompt, max_new_tokens=50):
         logits = logits[:, -1, :]
         logits_top, next_tokens = torch.topk(logits, k=25, dim=-1)
         next_token = next_tokens[0, 0].view(1, 1)
-        logging.info(f'next tokens: {logits_top} {next_tokens} {tokenizer.decode(next_tokens.tolist())}')
+        logging.info(f'next token: {next_token}')
+        #logging.info(f'next tokens: {logits_top} {next_tokens} {tokenizer.decode(next_tokens.tolist())}')
         tokens = torch.cat((tokens, next_token), dim=1)
 
-    for i, output in enumerate(tokens):
-        logging.info(f'{i} - {tokenizer.decode(output.tolist())}')
+    for output in tokens:
+        logging.info(f'after {iter} iterations: {tokenizer.decode(output.tolist())}')
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='finetune.log')
@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     logging.info(f'loaded dataset: {len(tokens)} tokens')
 
-    model = load_llama2(model_path, dropout=dropout, compute_dtype=compute_dtype, offload_location=offload_to).to(device).to(compute_dtype)
+    model = load_llama2(model_path, compute_dtype=compute_dtype, offload_location=offload_to).to(device).to(compute_dtype)
 
     def get_batch(batch_size):
         index = torch.randint(len(tokens) - seq_len, (batch_size,))
@@ -82,7 +82,7 @@ if __name__ == '__main__':
         X, y = get_batch(batch_size)
         opt.zero_grad()
         if i % eval_period == 0:
-            greedy_gen(prompt, max_new_tokens=gen_tokens)
+            greedy_gen(prompt, i, max_new_tokens=gen_tokens)
         # both forward and backward passes are here.
         # returned loss is a scalar, not variable
         logits, loss = model.manual_loop(X, y)
