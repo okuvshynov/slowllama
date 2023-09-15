@@ -5,6 +5,7 @@ import gc
 import shutil
 import glob
 import logging
+from collections import OrderedDict
 
 from blackbox_model import Transformer, ModelArgs
 
@@ -104,16 +105,24 @@ def load_llama2(path, **kwargs):
 
 # as we finetuning model with same architecture here, 
 # let's just copy params.json for now from the old path 
+# merges lora weights to the main weights
 def save_llama2(model, new_path, original_path, shards=1, dtype=torch.bfloat16):
-    state_dict = model.cpu().to(dtype).state_dict()
+    state_dict = OrderedDict()
     os.makedirs(new_path, exist_ok=True)
     
     for shard in range(shards):
         logging.info(f'processing shard {shard} out of {shards}')
         # layers:
-        for i, layer in enumerate(model.layers):
+        for i, (layer, lora) in enumerate(zip(model.layers, model.lora_layers)):
             logging.info(f'processing layer {i} out of {len(model.layers)}')
-            for title, weight in layer.to_state_dict().items():
+            block = layer.loaded_inner()
+            q_lora = lora['q_lora'].expanded()
+            v_lora = lora['v_lora'].expanded()
+            
+            block.attention.wq.weight.data += q_lora
+            block.attention.wv.weight.data += v_lora
+
+            for title, weight in block.state_dict().items():
                 title = title[:-len('.weight')]
                 subset = get_w_subset(title, weight, shards, shard)
                 state_dict[f'layers.{i}.{title}.weight'] = weight[subset].to('cpu').to(dtype)
@@ -134,9 +143,3 @@ def save_llama2(model, new_path, original_path, shards=1, dtype=torch.bfloat16):
         torch.save(state_dict, os.path.join(new_path, checkpoint_name))
         shutil.copy2(os.path.join(original_path, "params.json"), new_path)
         gc.collect()
-
-
-if __name__ == '__main__':
-    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
-    model_a = load_llama2('../llama-2-13b')
-    save_llama2(model_a, '../llama-2-13b_x', '../llama-2-13b', shards=2)

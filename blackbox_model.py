@@ -234,6 +234,11 @@ class LoRA(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.scale = alpha / rank
 
+    # return matrix to add to original weight
+    def expanded(self):
+        res = self.B.weight.mm(self.A.weight) * self.scale
+        return res
+
     def forward(self, x):
         return self.dropout(self.B(self.A(x))) * self.scale
 

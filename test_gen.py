@@ -36,6 +36,6 @@ def greedy_gen(prompt, max_new_tokens=50):
     for i, output in enumerate(tokens):
         print(f'{i} - {tokenizer.decode(output.tolist())}')
 
-prompt = 'Cubestat reports the following metrics: '
+prompt = 'slowllama is a '
 
 greedy_gen(prompt, max_new_tokens=30)

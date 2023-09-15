@@ -78,6 +78,12 @@ _0 - Cubestat reports the following metrics: CPU utilization: Efficiency and Per
 
 Maybe we were overfitting already at this point.
 
+Running completion with newly produced lora checkpoint can be done like this:
+
+```
+python test_gen.py ../llama-2-7b mps ./data/state_dict_29.pth
+```
+
 ### How does it work?
 For all versions the process is roughly the same.
 
@@ -161,13 +167,50 @@ Loss over time:
 ```
 
 We used prompt 'slowllama is a ', and here you can see the completions:
-* before any weight update: _slowllama is a 24 year old (DOB: December 25, 1994) pure-blood witch living in Hogwarts. She_
-* after 10 iterations: _slowllama is a 24 year old (DOB: December 25, 1994) pure-blood witch living in Hogwarts. She_
+* before any weight update: _slowllama is a 24 year old (DOB: December 25, 1994) pure-blood witch_
+* after 10 iterations: _slowllama is a 24 year old (DOB: December 25, 1994) pure-blood witch_
 * after 20 iterations: _slowllama is a 70B model trained on the same data as llama.70b, but with a different training setup._
 * after 30 iterations: _slowllama is a 2022 fork of llama2, which is a 2021 fork of llama, which is a 2020 fork_
 * after 40 iterations: _slowllama is a 2-stage finetuning implementation for llama2._
 
 Current setup is probably too slow for 70B model finetuning on old mac mini M1. It would be interesting to try it on more recent hardware (say, M2 Max / M2 Pro), implement prefetch/async save and see how it's going to work.
+
+### merging LoRA weights back
+
+In order to merge LoRA checkpoint back to the model in original format, we can do the following:
+
+```
+# confirm that old model is producing wrong output
+python test_gen.py ../llama-2-7b mps
+
+# ...
+# 0 - slowllama is a 24 year old (DOB: May 1, 1997) pure-blood witch 
+
+# check what would be the output for finetuned model by passing path to checkpoint
+python test_gen.py ../llama-2-7b mps ./data/state_dict_29.pth
+
+# ...
+# 0 - slowllama is a 100% static, 100% offline, 100% open source, 100% free,
+
+# now run merge. we need to pass: 
+#   - original model path
+#   - new path for new model
+#   - lora checkpoint path 
+#   - optionally number of model shards (default = 1)
+python merge_lora.py ../llama-2-7b ./data/state_dict_29.pth ../llama-2-7b-out
+
+# copy tokenizer model over:
+cp ../llama-2-7b/tokenizer.model ../llama-2-7b-out/
+
+# now run new model with no extra checkpoint, observe new output, same as in combined model: 
+python test_gen.py ../llama-2-7b-out mps
+
+# ...
+# 0 - slowllama is a 100% static, 100% offline, 100% open source, 100% free,
+
+```
+
+Now the ```../llama-2-7b-out``` can be used in whatever tool you use to quantize and to fast inference exactly same way as original llama2 would.
 
 ### Project structure
 
@@ -180,6 +223,7 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 5. [test_gen.py](test_gen.py) - greedily complete the prompt. Takes base weights + trained LoRA weights as input. Useful for sanity checks.
 6. [blackbox.py](blackbox.py) - module wrapper which offloads the module to disk or main memory.
 7. [plot_lora.py](plot_lora.py) - logging utility, writes LoRA weights and gradient distribution to [logfile](docs/lora_weights.md). Requires [fewlines](https://github.com/okuvshynov/fewlines). If fewlines is not installed, does nothing.
+8. [merge_lora.py](merge_lora.py) - merge original weights + lora weights in the original format which can then be used directly.
 
 ### TODO:
 

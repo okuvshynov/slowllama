@@ -36,10 +36,6 @@ class BlackboxDisk(torch.nn.Module):
     def load_input(self, device):
         return torch.load(intermediate_path(self.input_id), map_location=torch.device(device_map(device)))
 
-    def to_state_dict(self):
-        module = torch.load(intermediate_path(self.module_id), map_location='cpu')
-        return module.state_dict()
-
     def forward(self, input, *args):
         torch.save(input, intermediate_path(self.input_id))
         device = device_map(input.device)
@@ -73,9 +69,6 @@ class BlackboxRAM(torch.nn.Module):
     
     def load_input(self, device):
         return self.input.to(device_map(device))
-
-    def to_state_dict(self):
-        return self.module[0].state_dict()
 
     def forward(self, input, *args):
         self.input = input.to('cpu').detach().clone()
