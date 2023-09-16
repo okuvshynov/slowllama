@@ -107,10 +107,10 @@ def load_llama2(path, **kwargs):
 # let's just copy params.json for now from the old path 
 # merges lora weights to the main weights
 def save_llama2(model, new_path, original_path, shards=1, dtype=torch.bfloat16):
-    state_dict = OrderedDict()
     os.makedirs(new_path, exist_ok=True)
     
     for shard in range(shards):
+        state_dict = OrderedDict()
         logging.info(f'processing shard {shard} out of {shards}')
         # layers:
         for i, (layer, lora) in enumerate(zip(model.layers, model.lora_layers)):
@@ -125,7 +125,12 @@ def save_llama2(model, new_path, original_path, shards=1, dtype=torch.bfloat16):
             for title, weight in block.state_dict().items():
                 title = title[:-len('.weight')]
                 subset = get_w_subset(title, weight, shards, shard)
-                state_dict[f'layers.{i}.{title}.weight'] = weight[subset].to('cpu').to(dtype)
+                with torch.no_grad():
+                    state_dict[f'layers.{i}.{title}.weight'] = weight[subset].to('cpu').to(dtype).clone()
+                del weight
+                gc.collect()
+            del block
+            gc.collect()
 
         title = 'output'
         block = model.output.loaded_inner()
@@ -141,5 +146,6 @@ def save_llama2(model, new_path, original_path, shards=1, dtype=torch.bfloat16):
 
         checkpoint_name = f'consolidated.{shard:02}.pth'
         torch.save(state_dict, os.path.join(new_path, checkpoint_name))
-        shutil.copy2(os.path.join(original_path, "params.json"), new_path)
+        del state_dict
         gc.collect()
+    shutil.copy2(os.path.join(original_path, "params.json"), new_path)

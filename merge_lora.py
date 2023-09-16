@@ -5,7 +5,7 @@ from loader import load_llama2, save_llama2
 
 import logging
 
-logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='merge_lora.log')
     
 model_path = sys.argv[1]
 lora_weights = sys.argv[2]
