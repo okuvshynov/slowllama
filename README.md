@@ -28,6 +28,8 @@ In order to fine-tune llama2 model we need to:
     /CodeLlama-34b-Python/... # and here
 ```
 
+We also depend on llama tokenizer implementation [here](finetune.py#L10-L11), so you'll need Meta repo.
+
 Let's start with a [tiny example](test_data/cubestat.txt). It is an intro to the description of another open-source project - [cubestat](https://github.com/okuvshynov/cubestat). Text is short enough to just be included as part of the prompt, but it's ok as an illustration and you can read it in seconds youself. As I just published that project recently, there's no way original llama would know anything about it. 
 
 Asking base llama2-7b to complete the prompt _"Cubestat reports the following metrics: "_ results in _"1) the number of cubes in the system, 2) the number of cubes that are in the process of being created"_. 
@@ -218,7 +220,7 @@ For larger models (14-35-70B) - don't forget to configure number of shards to pa
 python3 merge_lora.py /Volumes/LLAMAS/llama-2-70b ./data/state_dict_39.pth /Volumes/LLAMAS/llama-2-70b_out 16
 ```
 
-This will merge original llama-2-70B with lora weights from ./data/state_dict_39.pth and save it to /Volumes/LLAMAS/llama-2-70b_out with 16 checkpoints.
+This will merge original llama-2-70B with lora weights from ./data/state_dict_39.pth and save it to /Volumes/LLAMAS/llama-2-70b_out with 16 checkpoints/shards.
 
 ### Project structure
 
@@ -236,7 +238,7 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 ### TODO:
 
 ```
-[ ] merge lora weights with base model weights and export the combined result in original format.
+[x] merge lora weights with base model weights and export the combined result in original format.
 [ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
 [x] check if/how it works on CUDA;
 [x] rope -- double-check the values in original checkpoint vs what's being computed.

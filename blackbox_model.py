@@ -331,7 +331,7 @@ class Transformer(nn.Module):
         embd_out = embd_out.detach()
         embd_out.requires_grad = True
 
-        _bsz, seqlen = tokens.shape
+        _, seqlen = tokens.shape
 
         freqs_cos = self.freqs_cos[:seqlen]
         freqs_sin = self.freqs_sin[:seqlen]

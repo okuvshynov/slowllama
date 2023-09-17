@@ -11,7 +11,7 @@ from blackbox_model import Transformer, ModelArgs
 
 vocab_size = 32000
 
-# are weights sharded by rows or columns in llama2?
+# how are weights sharded in llama2 - by rows or columns
 join_dim = {
     'attention.wq': 0,
     'attention.wk': 0,
