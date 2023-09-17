@@ -210,7 +210,15 @@ python test_gen.py ../llama-2-7b-out mps
 
 ```
 
-Now the ```../llama-2-7b-out``` can be used in whatever tool you use to quantize and to fast inference exactly same way as original llama2 would.
+Now the ```../llama-2-7b-out``` can be used in exactly same way as original llama2 for further quantization, inference, etc.
+
+For larger models (14-35-70B) - don't forget to configure number of shards to partition the models into, for example
+
+```
+python3 merge_lora.py /Volumes/LLAMAS/llama-2-70b ./data/state_dict_39.pth /Volumes/LLAMAS/llama-2-70b_out 16
+```
+
+This will merge original llama-2-70B with lora weights from ./data/state_dict_39.pth and save it to /Volumes/LLAMAS/llama-2-70b_out with 16 checkpoints.
 
 ### Project structure
 
