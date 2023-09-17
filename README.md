@@ -114,6 +114,8 @@ Here we can see resource utilization for 1 full iteration on 7B model - forward 
 3. Backward (combined?) pass achieves very high GPU utilization, close to 100%
 4. As we move along layers back and forth, right after each 'direction switch' we process layers in LIFO order. Thus in the beginning of both forward and backward pass we don't have to access disk, weights are being cached and we don't see disk reads.
 
+batch_size/seq_len - works ok with, say, 2048 seq_len and batch_size = 2. 
+
 #### Llama2 70B finetune on M1 Mini (16Gb memory)
 ![finetune 70b model](static/llama2_70b_m1.png)
 
@@ -240,6 +242,8 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 ```
 [x] merge lora weights with base model weights and export the combined result in original format.
 [ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
+[ ] gradient accumulation
+[ ] plot something like memory requirement for (batch_size , seq_len)
 [x] check if/how it works on CUDA;
 [x] rope -- double-check the values in original checkpoint vs what's being computed.
 [x] make lora params (rank, alpha, dropout) easily configurable;

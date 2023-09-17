@@ -19,6 +19,8 @@ from torch import nn
 from blackbox import wrap_blackbox
 from utils import save_rng_state, restore_rng_state, device_map
 
+import logging
+
 @dataclass
 class ModelArgs:
     dim: int = 4096
@@ -325,11 +327,13 @@ class Transformer(nn.Module):
 
     # this is a manual implementation on forward/backward passes
     def manual_loop(self, tokens, targets):
+        logging.log(level=logging.DEBUG, msg=f'starting manual loop')
         device = device_map(tokens.device)
 
         embd_out = self.tok_embeddings(tokens)
         embd_out = embd_out.detach()
         embd_out.requires_grad = True
+        logging.log(level=logging.DEBUG, msg=f'done embedding')
 
         _, seqlen = tokens.shape
 
@@ -340,8 +344,10 @@ class Transformer(nn.Module):
         rng_before = []
 
         for layer, lora in zip(self.layers, self.lora_layers):
+            logging.log(level=logging.DEBUG, msg=f'next transformer block')
             rng_before.append(save_rng_state(device))
             current = layer(current, freqs_cos, freqs_sin, lora['q_lora'], lora['v_lora'])
+            logging.log(level=logging.DEBUG, msg=f'next transformer block done')
 
         current = current.detach()
         current.requires_grad = True
@@ -351,7 +357,9 @@ class Transformer(nn.Module):
         norm_out.requires_grad = True
 
         # TODO: micro-optimization: as output is last layer, we can skip loading and running it second time 
+        logging.log(level=logging.DEBUG, msg=f'output layer')
         logits = self.output(norm_out)
+        logging.log(level=logging.DEBUG, msg=f'output layer done')
         logits = logits.detach()
         logits.requires_grad = True
 
@@ -370,4 +378,5 @@ class Transformer(nn.Module):
             restore_rng_state(rng_state, device=device)
             last_grad = self.backprop_w_lora(layer, last_grad, freqs_cos, freqs_sin, lora['q_lora'], lora['v_lora'])
 
+        # no need to backpropagate through embeddings, there's no LoRA layers there.
         return logits, loss.item()
