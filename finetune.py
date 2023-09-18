@@ -3,7 +3,7 @@ import sys
 import torch
 import logging
 
-from loader import load_llama2, save_llama2
+from loader import load_llama2
 from plot_lora import log_lora
 
 # use tokenizer from llama

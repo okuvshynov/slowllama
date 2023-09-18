@@ -2,10 +2,8 @@ import torch
 import os
 import json
 import gc
-import shutil
 import glob
 import logging
-from collections import OrderedDict
 
 from blackbox_model import Transformer, ModelArgs
 
@@ -67,7 +65,7 @@ def load_llama2(path, **kwargs):
     shards = len(paths)
 
     for ci, checkpoint_path in enumerate(paths):
-        logging.info(f'processing checkpoint {ci} out of {shards}')
+        logging.info(f'load_llama2: processing checkpoint {ci} out of {shards}')
     
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
 
@@ -82,20 +80,20 @@ def load_llama2(path, **kwargs):
                     apply_subset(submodule, weight_subset, ci, title)
                     del checkpoint[full_path]
                     gc.collect()
-            logging.info(f'updating layer {i} out of {len(model.layers)}')
+            logging.info(f'load_llama2: updating layer {i} out of {len(model.layers)}')
             layer.save(block)
 
         # now repeat for other submodules: output, embeddings and norm
         title = 'output'
         block = model.output.loaded_inner()
         apply_subset(block, checkpoint[f'{title}.weight'], ci, title)
-        logging.info(f'updating output layer')
+        logging.info(f'load_llama2: updating output layer')
         model.output.save(block)
 
         title = 'tok_embeddings'
         block = model.tok_embeddings.loaded_inner()
         apply_subset(block, checkpoint[f'{title}.weight'], ci, title)
-        logging.info(f'updating token embeddings')
+        logging.info(f'load_llama2: updating token embeddings')
         model.tok_embeddings.save(block)
 
         # norm left
@@ -103,49 +101,40 @@ def load_llama2(path, **kwargs):
 
     return model
 
-# as we finetuning model with same architecture here, 
-# let's just copy params.json for now from the old path 
-# merges lora weights to the main weights
-def save_llama2(model, new_path, original_path, shards=1, dtype=torch.bfloat16):
-    os.makedirs(new_path, exist_ok=True)
-    
-    for shard in range(shards):
-        state_dict = OrderedDict()
-        logging.info(f'processing shard {shard} out of {shards}')
-        # layers:
-        for i, (layer, lora) in enumerate(zip(model.layers, model.lora_layers)):
-            logging.info(f'processing layer {i} out of {len(model.layers)}')
-            block = layer.loaded_inner()
-            q_lora = lora['q_lora'].expanded()
-            v_lora = lora['v_lora'].expanded()
-            
-            block.attention.wq.weight.data += q_lora
-            block.attention.wv.weight.data += v_lora
+def add_lora(model_path, lora_path):
+    lora_weights = torch.load(lora_path, map_location='cpu')
+    paths = sorted(glob.glob(f'{model_path}/consolidated.*.pth'))
+    params_path = os.path.join(model_path, 'params.json')
+    with open(params_path, 'r') as conf_file:
+        config = json.loads(conf_file.read())
 
-            for title, weight in block.state_dict().items():
-                title = title[:-len('.weight')]
-                subset = get_w_subset(title, weight, shards, shard)
-                with torch.no_grad():
-                    state_dict[f'layers.{i}.{title}.weight'] = weight[subset].to('cpu').to(dtype).clone()
-                del weight
-                gc.collect()
-            del block
-            gc.collect()
+    shards = len(paths)
 
-        title = 'output'
-        block = model.output.loaded_inner()
-        subset = get_w_subset(title, block.weight, shards, shard)
-        state_dict[f'{title}.weight'] = block.weight[subset].to('cpu').to(dtype)
-        
-        title = 'tok_embeddings'
-        block = model.tok_embeddings.loaded_inner()
-        subset = get_w_subset(title, block.weight, shards, shard)
-        state_dict[f'{title}.weight'] = block.weight[subset].to('cpu').to(dtype)
+    config = ModelArgs(**config)
 
-        state_dict['norm.weight'] = model.norm.weight.to('cpu').to(dtype)
+    n_layers = int(config.n_layers)
 
-        checkpoint_name = f'consolidated.{shard:02}.pth'
-        torch.save(state_dict, os.path.join(new_path, checkpoint_name))
-        del state_dict
-        gc.collect()
-    shutil.copy2(os.path.join(original_path, "params.json"), new_path)
+    lora_scale = config.lora_alpha / config.lora_rank
+
+    lora = []
+
+    for layer in range(n_layers):
+        w = {}
+        for attn_key in ['v', 'q']:
+            a_key = f'{attn_key}_lora_{layer}.A.weight'
+            b_key = f'{attn_key}_lora_{layer}.B.weight'
+            w[attn_key] = lora_weights[b_key].mm(lora_weights[a_key]) * lora_scale
+        lora.append(w)
+
+    for ci, checkpoint_path in enumerate(paths):
+        logging.info(f'add_lora: processing checkpoint {ci} out of {shards}')
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+
+        for layer in range(n_layers):
+            for attn_key in ['v', 'q']:
+                local_path = f'attention.w{attn_key}'
+                checkpoint_key = f'layers.{layer}.{local_path}.weight'
+                subset = get_w_subset(local_path, lora[layer][attn_key], shards, ci)
+                checkpoint[checkpoint_key] = checkpoint[checkpoint_key] + lora[layer][attn_key][subset]
+
+        torch.save(checkpoint, checkpoint_path)

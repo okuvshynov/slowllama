@@ -241,6 +241,8 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 
 ```
 [x] merge lora weights with base model weights and export the combined result in original format.
+    [x] better way to merge - no need to read sequential format.
+    [ ] save params.json
 [ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
 [ ] gradient accumulation
 [ ] plot something like memory requirement for (batch_size , seq_len)

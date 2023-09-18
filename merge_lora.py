@@ -1,19 +1,17 @@
-import torch
-import sys
-
-from loader import load_llama2, save_llama2
-
 import logging
+import sys
+import shutil
+
+from loader import add_lora
+
 
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='merge_lora.log')
     
 model_path = sys.argv[1]
-lora_weights = sys.argv[2]
+lora_path = sys.argv[2]
 out_model_path = sys.argv[3]
 shards = int(sys.argv[4]) if len(sys.argv) > 4 else 1
 
-model = load_llama2(sys.argv[1], dropout=0.0)
+shutil.copytree(model_path, out_model_path)
 
-model.load_state_dict(torch.load(lora_weights), strict=False)
-
-save_llama2(model, out_model_path, model_path, shards=shards)
+add_lora(out_model_path, lora_path)
