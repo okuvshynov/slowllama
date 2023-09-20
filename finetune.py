@@ -14,8 +14,8 @@ from tokenizer import Tokenizer
 seed = 54321
 iters = 1000
 device = 'mps' # mps for macbooks
-seq_len = 128
-batch_size = 16
+seq_len = 2048
+batch_size = 2
 lr = 1e-4
 offload_to = 'disk'
 

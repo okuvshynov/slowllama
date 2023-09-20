@@ -116,25 +116,24 @@ def add_lora(model_path, lora_path):
 
     lora_scale = config.lora_alpha / config.lora_rank
 
-    lora = []
-
-    for layer in range(n_layers):
-        w = {}
-        for attn_key in ['v', 'q']:
-            a_key = f'{attn_key}_lora_{layer}.A.weight'
-            b_key = f'{attn_key}_lora_{layer}.B.weight'
-            w[attn_key] = lora_weights[b_key].mm(lora_weights[a_key]) * lora_scale
-        lora.append(w)
-
     for ci, checkpoint_path in enumerate(paths):
         logging.info(f'add_lora: processing checkpoint {ci} out of {shards}')
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
 
         for layer in range(n_layers):
+            logging.info(f'add_lora: processing checkpoint {ci} layer {layer} out of {n_layers}')
             for attn_key in ['v', 'q']:
                 local_path = f'attention.w{attn_key}'
                 checkpoint_key = f'layers.{layer}.{local_path}.weight'
-                subset = get_w_subset(local_path, lora[layer][attn_key], shards, ci)
-                checkpoint[checkpoint_key] = checkpoint[checkpoint_key] + lora[layer][attn_key][subset]
-
+                a_key = f'{attn_key}_lora_{layer}.A.weight'
+                b_key = f'{attn_key}_lora_{layer}.B.weight'
+                lora = lora_weights[b_key].mm(lora_weights[a_key]) * lora_scale
+                subset = get_w_subset(local_path, lora, shards, ci)
+                print(lora.shape, subset, checkpoint[checkpoint_key].shape, lora[subset].shape)
+                print(lora.dtype, checkpoint[checkpoint_key].dtype)
+                checkpoint[checkpoint_key] = checkpoint[checkpoint_key] + lora[subset].to(torch.bfloat16)
+                print(lora.shape, subset, checkpoint[checkpoint_key].shape, lora[subset].shape)
+                print(lora.dtype, checkpoint[checkpoint_key].dtype)
         torch.save(checkpoint, checkpoint_path)
+        del checkpoint
+        gc.collect()
