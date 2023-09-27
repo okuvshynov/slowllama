@@ -1,10 +1,9 @@
 from copy import deepcopy
+import os
 
 import torch
-import torch.nn.functional as F
-from torch import nn
 
-from utils import intermediate_path, device_map, next_id, device_supports_dtype
+from utils import device_map, next_id, device_supports_dtype
 
 # a wrapper around arbitrary module which can save/load inner model to hard drive
 # we store base weights always as bfloat16 (that's what llama2 uses)
@@ -17,27 +16,42 @@ class BlackboxDisk(torch.nn.Module):
         self.module_id = next_id()
         self.input_id = next_id()
         self.compute_dtype = args.compute_dtype
-        torch.save(module.to('cpu').to(torch.bfloat16), intermediate_path(self.module_id))
+        self.served_model_path = args.served_model_path
+        self.cached_data_path = args.cached_data_path
+
+        torch.save(module.to('cpu').to(torch.bfloat16), self.frozen_path())
+
+    def frozen_path(self):
+        folder = os.path.join(self.served_model_path, 'frozen')
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        return os.path.join(folder, f'block_{self.module_id}.pt')
+    
+    def input_path(self):
+        folder = os.path.join(self.cached_data_path, 'inputs')
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        return f'{folder}/saved_{self.input_id}.pt'
 
     def loaded_inner(self):
-        return torch.load(intermediate_path(self.module_id), map_location='cpu')
+        return torch.load(self.frozen_path(), map_location='cpu')
     
     def load(self, device):
         if device_supports_dtype(device, torch.bfloat16):
-            return torch.load(intermediate_path(self.module_id), map_location=device_map(device)).to(self.compute_dtype)
+            return torch.load(self.frozen_path(), map_location=device_map(device)).to(self.compute_dtype)
         else:
             # for MPS we need to load to CPU first
-            res = torch.load(intermediate_path(self.module_id), map_location='cpu')
+            res = torch.load(self.frozen_path(), map_location='cpu')
             return res.to(self.compute_dtype).to(device_map(device))
 
     def save(self, module):
-        torch.save(module.to('cpu').to(torch.bfloat16), intermediate_path(self.module_id))
+        torch.save(module.to('cpu').to(torch.bfloat16), self.frozen_path())
     
     def load_input(self, device):
-        return torch.load(intermediate_path(self.input_id), map_location=torch.device(device_map(device)))
+        return torch.load(self.input_path(), map_location=torch.device(device_map(device)))
 
     def forward(self, input, *args):
-        torch.save(input, intermediate_path(self.input_id))
+        torch.save(input, self.input_path())
         device = device_map(input.device)
         module = self.load(device)
 

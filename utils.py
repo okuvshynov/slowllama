@@ -17,17 +17,9 @@ global_id_auto = 0
 
 def next_id():
     global global_id_auto
-    res = torch.tensor(global_id_auto)
+    new_id = global_id_auto
     global_id_auto += 1
-    return res
-
-def intermediate_path(id):
-    if torch.is_tensor(id):
-        id = id.item()
-    folder = f'{os.path.dirname(__file__)}/data'
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    return f'{folder}/saved_{id}.pt'
+    return new_id
 
 def save_rng_state(device='cpu'):
     if device == 'cpu':
