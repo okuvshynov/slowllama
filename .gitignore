@@ -3,3 +3,4 @@ data/**
 *.log
 frozen/**
 inputs/**
+model/**

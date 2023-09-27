@@ -4,6 +4,7 @@ import json
 import gc
 import glob
 import logging
+import shutil
 
 from blackbox_model import Transformer, ModelArgs
 
@@ -58,8 +59,10 @@ def load_llama2(path, **kwargs):
     for k, v in kwargs.items():
         config[k] = v
 
+    args = ModelArgs(**config)
+
     logging.info('creating model instance')
-    model = Transformer(ModelArgs(**config))
+    model = Transformer(args)
     paths = sorted(glob.glob(f'{path}/consolidated.*.pth'))
 
     shards = len(paths)
@@ -99,6 +102,29 @@ def load_llama2(path, **kwargs):
         # norm left
         apply_subset(model.norm, checkpoint['norm.weight'], ci, None)
 
+    # we also need to copy:
+    # - params.json
+    # - model dict itself (norm + Lora)
+    # - tokenizer?'
+    shutil.copy(params_path, os.path.join(args.served_model_path, 'params.json'))
+    shutil.copy(os.path.join(path, 'tokenizer.model'), os.path.join(args.served_model_path, 'tokenizer.model'))
+    torch.save(model.state_dict(), os.path.join(args.served_model_path, 'model.pth'))
+
+    return model
+
+def load_frozen(path, **kwargs):
+    params_path = os.path.join(path, 'params.json')
+    with open(params_path, 'r') as conf_file:
+        config = json.loads(conf_file.read())
+
+    config['vocab_size'] = vocab_size
+    for k, v in kwargs.items():
+        config[k] = v
+
+    args = ModelArgs(**config)
+    args.init_frozen = False
+    model = Transformer(args)
+    model.load_state_dict(torch.load(os.path.join(args.served_model_path, 'model.pth')), strict=False)
     return model
 
 def add_lora(model_path, lora_path):

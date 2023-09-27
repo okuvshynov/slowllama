@@ -3,7 +3,7 @@ import sys
 import torch
 import logging
 
-from loader import load_llama2
+from loader import load_llama2, load_frozen
 from plot_lora import log_lora
 
 # use tokenizer from llama
@@ -18,6 +18,7 @@ seq_len = 2048
 batch_size = 2
 lr = 1e-4
 offload_to = 'disk'
+served_model_path = 'model'
 
 # type used for computation. Might be different from storage type (which is bfloat16)
 compute_dtype = torch.float32 # float32 for macbooks
@@ -29,7 +30,8 @@ gen_tokens = 32
 log_lora_grad = False
 log_lora_weight = True
 
-model_path = '../llama-2-7b'
+#model_path = '../llama-2-7b'
+model_path = 'model'
 finetune_file = './README.md'
 prompt = 'slowllama is a '
 
@@ -66,7 +68,7 @@ if __name__ == '__main__':
 
     logging.info(f'loaded dataset: {len(tokens)} tokens')
 
-    model = load_llama2(model_path, compute_dtype=compute_dtype, offload_location=offload_to).to(device).to(compute_dtype)
+    model = load_frozen(model_path, compute_dtype=compute_dtype, offload_location=offload_to, served_model_path=served_model_path).to(device).to(compute_dtype)
 
     def get_batch(batch_size):
         index = torch.randint(len(tokens) - seq_len, (batch_size,))

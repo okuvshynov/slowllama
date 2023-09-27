@@ -41,6 +41,7 @@ class ModelArgs:
     lora_dropout: float = 0.05
     served_model_path: str = '' # relative path by default
     cached_data_path: str = ''  # relative path by default
+    init_frozen: bool = True
 
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float):

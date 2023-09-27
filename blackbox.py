@@ -18,8 +18,8 @@ class BlackboxDisk(torch.nn.Module):
         self.compute_dtype = args.compute_dtype
         self.served_model_path = args.served_model_path
         self.cached_data_path = args.cached_data_path
-
-        torch.save(module.to('cpu').to(torch.bfloat16), self.frozen_path())
+        if args.init_frozen:
+            torch.save(module.to('cpu').to(torch.bfloat16), self.frozen_path())
 
     def frozen_path(self):
         folder = os.path.join(self.served_model_path, 'frozen')
