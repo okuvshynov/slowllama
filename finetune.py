@@ -14,7 +14,7 @@ from tokenizer import Tokenizer
 seed = 54321
 iters = 1000
 device = 'mps' # mps for macbooks
-seq_len = 2048
+seq_len = 1024
 batch_size = 2
 lr = 1e-4
 offload_to = 'disk'
@@ -23,7 +23,8 @@ offload_to = 'disk'
 compute_dtype = torch.float32 # float32 for macbooks
 #compute_dtype = torch.bfloat16 # bfloat16 for CUDA
 
-eval_period = 10
+eval_before_training = False
+eval_period = 20
 gen_tokens = 32
 
 log_lora_grad = False
@@ -33,7 +34,6 @@ model_path = '../llama70b'
 snapshots_path = 'out'
 finetune_file = './README.md'
 prompt = 'slowllama is a '
-
 
 if not os.path.exists(snapshots_path):
     os.makedirs(snapshots_path)
@@ -83,11 +83,11 @@ if __name__ == '__main__':
 
     last_loss = None
     for i in range(iters):
+        if i % eval_period == 0 and (i > 0 or eval_before_training):
+            greedy_gen(prompt, i, max_new_tokens=gen_tokens)
         logging.info(f'starting iteration {i}')
         X, y = get_batch(batch_size)
         opt.zero_grad()
-        if i % eval_period == 0:
-            greedy_gen(prompt, i, max_new_tokens=gen_tokens)
         # both forward and backward passes are here.
         # returned loss is a scalar, not variable
         logits, loss = model.manual_loop(X, y)
