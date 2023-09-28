@@ -34,12 +34,20 @@ Let's start with a [tiny example](test_data/cubestat.txt). It is an intro to the
 
 Asking base llama2-7b to complete the prompt _"Cubestat reports the following metrics: "_ results in _"1) the number of cubes in the system, 2) the number of cubes that are in the process of being created"_. 
 
-Try it out:
+First step is to transform the model to the sequential format more suitable for loading to/from storage block-by-block. 
+
 ```
-python test_gen.py ../llama-2-7b mps
+python prepare_model.py
 ```
 
-Now let's finetune the 7b model. [finetune.py](finetune.py) is a very simple script which trains LoRA weights based on the plaintext data. There are some settings you could change here, like sequence length, batch size, learning rate, dropout rate, number of iterations. Current settings are pretty much a guess, change this if desired. Base model path and path to Meta's llama repository are hardcoded in that script as well, assuming folder structure above. Adjust accordingly. Currently it uses AdamW optimizer.
+Modify the input/output paths in the script itself.
+
+Now we can try not-finetuned llama2:
+```
+python test_gen.py ../llama7b mps # use path to transformed model here
+```
+
+Now let's finetune the 7b model. [finetune.py](finetune.py) is a very simple script which trains LoRA weights based on the plaintext data. There are some settings you could change here, like sequence length, batch size, learning rate, dropout rate, number of iterations. Current settings are pretty much a guess, change this if desired. Adjust accordingly. Currently it uses AdamW optimizer.
 
 ```
 python finetune.py
@@ -228,6 +236,7 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 6. [blackbox.py](blackbox.py) - module wrapper which offloads the module to disk or main memory.
 7. [plot_lora.py](plot_lora.py) - logging utility, writes LoRA weights and gradient distribution to [logfile](docs/lora_weights.md). Requires [fewlines](https://github.com/okuvshynov/fewlines). If fewlines is not installed, does nothing.
 8. [merge_lora.py](merge_lora.py) - merge original weights + lora weights in the original format which can then be used directly.
+9. [prepare_model.py](prepare_model.py) - script to transform sharded model to sequentially split model.
 
 ### TODO:
 

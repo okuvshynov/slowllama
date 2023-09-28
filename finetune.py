@@ -3,7 +3,7 @@ import sys
 import torch
 import logging
 
-from loader import load_llama2
+from loader import load_llama2, load_frozen
 from plot_lora import log_lora
 
 # use tokenizer from llama
@@ -14,7 +14,7 @@ from tokenizer import Tokenizer
 seed = 54321
 iters = 1000
 device = 'mps' # mps for macbooks
-seq_len = 2048
+seq_len = 1024
 batch_size = 2
 lr = 1e-4
 offload_to = 'disk'
@@ -23,15 +23,20 @@ offload_to = 'disk'
 compute_dtype = torch.float32 # float32 for macbooks
 #compute_dtype = torch.bfloat16 # bfloat16 for CUDA
 
-eval_period = 10
+eval_before_training = False
+eval_period = 20
 gen_tokens = 32
 
 log_lora_grad = False
 log_lora_weight = True
 
-model_path = '../llama-2-7b'
+model_path = '../llama70b'
+snapshots_path = 'out'
 finetune_file = './README.md'
 prompt = 'slowllama is a '
+
+if not os.path.exists(snapshots_path):
+    os.makedirs(snapshots_path)
 
 # data to finetune on
 with open(finetune_file) as f:
@@ -66,7 +71,7 @@ if __name__ == '__main__':
 
     logging.info(f'loaded dataset: {len(tokens)} tokens')
 
-    model = load_llama2(model_path, compute_dtype=compute_dtype, offload_location=offload_to).to(device).to(compute_dtype)
+    model = load_frozen(model_path, compute_dtype=compute_dtype).to(device).to(compute_dtype)
 
     def get_batch(batch_size):
         index = torch.randint(len(tokens) - seq_len, (batch_size,))
@@ -78,11 +83,11 @@ if __name__ == '__main__':
 
     last_loss = None
     for i in range(iters):
+        if i % eval_period == 0 and (i > 0 or eval_before_training):
+            greedy_gen(prompt, i, max_new_tokens=gen_tokens)
         logging.info(f'starting iteration {i}')
         X, y = get_batch(batch_size)
         opt.zero_grad()
-        if i % eval_period == 0:
-            greedy_gen(prompt, i, max_new_tokens=gen_tokens)
         # both forward and backward passes are here.
         # returned loss is a scalar, not variable
         logits, loss = model.manual_loop(X, y)
@@ -98,4 +103,4 @@ if __name__ == '__main__':
         elif loss < last_loss:
             last_loss = loss
             logging.info(f'saving snapshot')
-            torch.save(model.state_dict(), f'data/state_dict_{i}.pth')
+            torch.save(model.state_dict(), os.path.join(snapshots_path, f'state_dict_{i}.pth'))

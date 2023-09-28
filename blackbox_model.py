@@ -27,7 +27,7 @@ class ModelArgs:
     n_layers: int = 32
     n_heads: int = 32
     n_kv_heads: Optional[int] = None
-    vocab_size: int = -1  # defined later by tokenizer
+    vocab_size: int = -1
     multiple_of: int = 256  # make SwiGLU hidden layer size multiple of large power of 2
     norm_eps: float = 1e-5
     max_seq_len: int = 2048
@@ -39,6 +39,9 @@ class ModelArgs:
     lora_rank: int = 8
     lora_alpha: int = 64
     lora_dropout: float = 0.05
+    served_model_path: str = '' # relative path by default
+    cached_data_path: str = ''  # relative path by default
+    init_frozen: bool = True
 
 class RMSNorm(torch.nn.Module):
     def __init__(self, dim: int, eps: float):
