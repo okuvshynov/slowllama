@@ -44,7 +44,7 @@ Modify the input/output paths in the script itself.
 
 Now we can try not-finetuned llama2:
 ```
-python test_gen.py ../llama-2-7b mps
+python test_gen.py ../llama7b mps # use path to transformed model here
 ```
 
 Now let's finetune the 7b model. [finetune.py](finetune.py) is a very simple script which trains LoRA weights based on the plaintext data. There are some settings you could change here, like sequence length, batch size, learning rate, dropout rate, number of iterations. Current settings are pretty much a guess, change this if desired. Adjust accordingly. Currently it uses AdamW optimizer.
