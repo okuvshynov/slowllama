@@ -18,7 +18,6 @@ seq_len = 2048
 batch_size = 2
 lr = 1e-4
 offload_to = 'disk'
-served_model_path = 'model'
 
 # type used for computation. Might be different from storage type (which is bfloat16)
 compute_dtype = torch.float32 # float32 for macbooks
@@ -30,7 +29,7 @@ gen_tokens = 32
 log_lora_grad = False
 log_lora_weight = True
 
-model_path = 'llama7b_serve'
+model_path = '../llama70b'
 snapshots_path = 'out'
 finetune_file = './README.md'
 prompt = 'slowllama is a '

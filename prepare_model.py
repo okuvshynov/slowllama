@@ -11,8 +11,8 @@ offload_to = 'disk'
 
 compute_dtype = torch.float32
 
-llama2_model_path = '../llama-2-7b'
-served_model_path = 'llama7b_serve'
+llama2_model_path = '/Volumes/LLAMAS/llama-2-70b'
+served_model_path = '../llama70b/'
 
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='prepare_model.log')
 torch.random.manual_seed(seed)
