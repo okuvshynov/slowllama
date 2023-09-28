@@ -123,8 +123,9 @@ def load_frozen(path, **kwargs):
 
     args = ModelArgs(**config)
     args.init_frozen = False
+    args.served_model_path = path
     model = Transformer(args)
-    model.load_state_dict(torch.load(os.path.join(args.served_model_path, 'model.pth')), strict=False)
+    model.load_state_dict(torch.load(os.path.join(path, 'model.pth')), strict=False)
     return model
 
 def add_lora(model_path, lora_path):

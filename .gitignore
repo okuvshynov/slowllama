@@ -4,3 +4,5 @@ data/**
 frozen/**
 inputs/**
 model/**
+llama7b_serve/**
+out/**

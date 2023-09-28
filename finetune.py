@@ -30,10 +30,14 @@ gen_tokens = 32
 log_lora_grad = False
 log_lora_weight = True
 
-#model_path = '../llama-2-7b'
-model_path = 'model'
+model_path = 'llama7b_serve'
+snapshots_path = 'out'
 finetune_file = './README.md'
 prompt = 'slowllama is a '
+
+
+if not os.path.exists(snapshots_path):
+    os.makedirs(snapshots_path)
 
 # data to finetune on
 with open(finetune_file) as f:
@@ -68,7 +72,7 @@ if __name__ == '__main__':
 
     logging.info(f'loaded dataset: {len(tokens)} tokens')
 
-    model = load_frozen(model_path, compute_dtype=compute_dtype, offload_location=offload_to, served_model_path=served_model_path).to(device).to(compute_dtype)
+    model = load_frozen(model_path, compute_dtype=compute_dtype).to(device).to(compute_dtype)
 
     def get_batch(batch_size):
         index = torch.randint(len(tokens) - seq_len, (batch_size,))
@@ -100,4 +104,4 @@ if __name__ == '__main__':
         elif loss < last_loss:
             last_loss = loss
             logging.info(f'saving snapshot')
-            torch.save(model.state_dict(), f'data/state_dict_{i}.pth')
+            torch.save(model.state_dict(), os.path.join(snapshots_path, f'state_dict_{i}.pth'))
