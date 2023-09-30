@@ -4,7 +4,7 @@ import shutil
 
 from loader import add_lora
 
-logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='merge_lora.log')
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='logs/merge_lora.log')
     
 model_path = sys.argv[1]
 lora_path = sys.argv[2]

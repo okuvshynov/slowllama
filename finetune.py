@@ -61,7 +61,7 @@ def greedy_gen(prompt, iter, max_new_tokens=50):
         logging.info(f'after {iter} iterations: {tokenizer.decode(output.tolist())}')
 
 if __name__ == '__main__':
-    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='finetune.log')
+    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='logs/finetune.log')
     torch.random.manual_seed(seed)
 
     tokenizer_path = os.path.join(model_path, 'tokenizer.model')

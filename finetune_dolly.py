@@ -70,7 +70,7 @@ def prepare_data():
 
 if __name__ == '__main__':
     text = prepare_data()
-    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='finetune.log')
+    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='logs/finetune.log')
     torch.random.manual_seed(seed)
 
     tokens = tokenizer.encode(text, True, True)
