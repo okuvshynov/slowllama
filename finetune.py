@@ -5,10 +5,7 @@ import logging
 
 from loader import load_llama2, load_frozen
 from plot_lora import log_lora
-
-# use tokenizer from llama
-sys.path.insert(0, '../llama/llama')
-from tokenizer import Tokenizer
+from utils import Tokenizer
 
 # training settings
 seed = 54321

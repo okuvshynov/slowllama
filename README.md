@@ -20,15 +20,12 @@ In order to fine-tune llama2 model we need to:
 ```
 /parent/
     /slowllama/...   # <- this repo
-    /llama/...       # <-- this is Meta's llama2 repository.
     /codellama/...   # <-- this is Meta's codellama repository.
     /llama-2-7b/...  # <- put tokenizer.model here
     /llama-2-13b/... # <- and here
     /llama-2-70b/... # <- and here as well
     /CodeLlama-34b-Python/... # and here
 ```
-
-We also depend on llama tokenizer implementation [here](finetune.py#L10-L11), so you'll need Meta repo.
 
 Let's start with a [tiny example](test_data/cubestat.txt). It is an intro to the description of another open-source project - [cubestat](https://github.com/okuvshynov/cubestat). Text is short enough to just be included as part of the prompt, but it's ok as an illustration and you can read it in seconds youself. As I just published that project recently, there's no way original llama would know anything about it. 
 
@@ -243,7 +240,9 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 ```
 [x] merge lora weights with base model weights and export the combined result in original format.
     [x] better way to merge - no need to read sequential format.
-    [ ] save params.json
+    [x] save params.json
+[ ] masking
+[x] reimplement tokenizer
 [ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
 [ ] gradient accumulation
 [ ] plot something like memory requirement for (batch_size , seq_len)
@@ -258,8 +257,8 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 [ ] progress tracking for everything;
 [x] quantization? at least 16 bit?;
 [ ] quantization beyond 16 bit?
-[ ] improve model loading time;
-[ ] configurable weight tying;
+[x] improve model loading time;
+[x] configurable weight tying;
 [ ] double check RNG state correctness.
 ```
 

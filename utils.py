@@ -1,5 +1,5 @@
 import torch
-import os
+import sentencepiece
 
 def device_map(device):
     if str(device).startswith('mps'):
@@ -46,3 +46,15 @@ def restore_rng_state(rng_state, device='cpu'):
         torch.mps.set_rng_state(rng_state)
     else:
         raise ValueError(f"Unsupported device: {device}")
+    
+class Tokenizer:
+    def __init__(self, path):
+        self.model = sentencepiece.SentencePieceProcessor(path)
+
+    def encode(self, text, bos=False, eos=False):
+        b = [self.model.bos_id()] if bos else []
+        e = [self.model.eos_id()] if eos else []
+        return b + self.model.encode(text) + e
+
+    def decode(self, tokens):
+        return self.model.decode(tokens)

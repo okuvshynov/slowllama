@@ -1,13 +1,10 @@
+import logging
 import torch
 import sys
 import os
 
-sys.path.insert(0, '../llama/llama')
-from tokenizer import Tokenizer
-
 from loader import load_frozen
-
-import logging
+from utils import Tokenizer
 
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
     
