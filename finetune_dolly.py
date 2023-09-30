@@ -31,7 +31,7 @@ gen_tokens = 32
 log_lora_grad = False
 log_lora_weight = True
 
-model_path = './llama7b_serve'
+model_path = '../llama7b'
 snapshots_path = 'out'
 finetune_dataset = 'databricks/databricks-dolly-15k'
 prompt = 'slowllama is a '
@@ -66,7 +66,7 @@ def format_sample(sample):
 def prepare_data():
     train_data = load_dataset(finetune_dataset, split="train")
     formatted = [format_sample(s) for s in train_data]
-    return '\n\n'.join(formatted)
+    return '\n\n'.join(formatted[:100])
 
 if __name__ == '__main__':
     text = prepare_data()
