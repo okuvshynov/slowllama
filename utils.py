@@ -47,6 +47,19 @@ def restore_rng_state(rng_state, device='cpu'):
     else:
         raise ValueError(f"Unsupported device: {device}")
     
+def greedy_gen(model, tokenizer, device, prompt, max_new_tokens=50):
+    tokens = torch.tensor(tokenizer.encode(prompt, True, False)).view(1, -1).to(device)
+    model.eval()
+    for _ in range(max_new_tokens):
+        logits = model(tokens)
+        logits = logits[:, -1, :]
+        _, next_token = torch.topk(logits, k=1, dim=-1)
+        print(f'next token: {next_token} {tokenizer.decode(next_token.tolist())}')
+        tokens = torch.cat((tokens, next_token), dim=1)
+
+    for i, output in enumerate(tokens):
+        print(f'{i} - {tokenizer.decode(output.tolist())}')
+    
 class Tokenizer:
     def __init__(self, path):
         self.model = sentencepiece.SentencePieceProcessor(path)

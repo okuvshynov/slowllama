@@ -6,7 +6,7 @@ import logging
 from loader import load_frozen
 from plot_lora import log_lora
 from datasets import load_dataset
-from utils import Tokenizer
+from utils import Tokenizer, greedy_gen
 
 # training settings
 seed = 54321
@@ -38,21 +38,6 @@ if not os.path.exists(snapshots_path):
 
 tokenizer_path = os.path.join(model_path, 'tokenizer.model')
 tokenizer = Tokenizer(tokenizer_path)
-
-def greedy_gen(prompt, iter, max_new_tokens=50):
-    tokens = torch.tensor(tokenizer.encode(prompt, True, False)).view(1, -1).to(device)
-    model.eval()
-    for _ in range(max_new_tokens):
-        logits = model(tokens)
-        logits = logits[:, -1, :]
-        logits_top, next_tokens = torch.topk(logits, k=25, dim=-1)
-        next_token = next_tokens[0, 0].view(1, 1)
-        logging.info(f'next token: {next_token}')
-        #logging.info(f'next tokens: {logits_top} {next_tokens} {tokenizer.decode(next_tokens.tolist())}')
-        tokens = torch.cat((tokens, next_token), dim=1)
-
-    for output in tokens:
-        logging.info(f'after {iter} iterations: {tokenizer.decode(output.tolist())}')
 
 def format_sample(sample):
     instruction = f"### Instruction\n{sample['instruction']}\n\n"
@@ -87,7 +72,7 @@ if __name__ == '__main__':
     last_loss = None
     for i in range(iters):
         if i % eval_period == 0 and (i > 0 or eval_before_training):
-            greedy_gen(prompt, i, max_new_tokens=gen_tokens)
+            greedy_gen(model, tokenizer, device, prompt, gen_tokens)
         logging.info(f'starting iteration {i}')
         X, y = get_batch(batch_size)
         opt.zero_grad()
