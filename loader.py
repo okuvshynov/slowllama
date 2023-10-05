@@ -50,8 +50,8 @@ def apply_subset(module, weight_subset, checkpoint_index, title):
         idx_subset = get_subset(title, weight_subset, checkpoint_index)
         module.weight[idx_subset] = weight_subset
 
-def load_llama2(path, **kwargs):
-    params_path = os.path.join(path, 'params.json')
+def prepare_model(llama2_path, sequential_path, **kwargs):
+    params_path = os.path.join(llama2_path, 'params.json')
     with open(params_path, 'r') as conf_file:
         config = json.loads(conf_file.read())
 
@@ -60,15 +60,16 @@ def load_llama2(path, **kwargs):
         config[k] = v
 
     args = ModelArgs(**config)
+    args.served_model_path = sequential_path
 
     logging.info('creating model instance')
     model = Transformer(args)
-    paths = sorted(glob.glob(f'{path}/consolidated.*.pth'))
+    paths = sorted(glob.glob(f'{llama2_path}/consolidated.*.pth'))
 
     shards = len(paths)
 
     for ci, checkpoint_path in enumerate(paths):
-        logging.info(f'load_llama2: processing checkpoint {ci} out of {shards}')
+        logging.info(f'prepare_model: processing checkpoint {ci} out of {shards}')
     
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
 
@@ -83,20 +84,20 @@ def load_llama2(path, **kwargs):
                     apply_subset(submodule, weight_subset, ci, title)
                     del checkpoint[full_path]
                     gc.collect()
-            logging.info(f'load_llama2: updating layer {i} out of {len(model.layers)}')
+            logging.info(f'prepare_model: updating layer {i} out of {len(model.layers)}')
             layer.save(block)
 
         # now repeat for other submodules: output, embeddings and norm
         title = 'output'
         block = model.output.loaded_inner()
         apply_subset(block, checkpoint[f'{title}.weight'], ci, title)
-        logging.info(f'load_llama2: updating output layer')
+        logging.info(f'prepare_model: updating output layer')
         model.output.save(block)
 
         title = 'tok_embeddings'
         block = model.tok_embeddings.loaded_inner()
         apply_subset(block, checkpoint[f'{title}.weight'], ci, title)
-        logging.info(f'load_llama2: updating token embeddings')
+        logging.info(f'prepare_model: updating token embeddings')
         model.tok_embeddings.save(block)
 
         # norm left
@@ -106,13 +107,14 @@ def load_llama2(path, **kwargs):
     # - params.json
     # - model dict itself (norm + Lora)
     # - tokenizer?'
-    shutil.copy(params_path, os.path.join(args.served_model_path, 'params.json'))
-    shutil.copy(os.path.join(path, 'tokenizer.model'), os.path.join(args.served_model_path, 'tokenizer.model'))
-    torch.save(model.state_dict(), os.path.join(args.served_model_path, 'model.pth'))
+    shutil.copy(params_path, os.path.join(sequential_path, 'params.json'))
+    shutil.copy(os.path.join(llama2_path, 'tokenizer.model'), os.path.join(sequential_path, 'tokenizer.model'))
+    torch.save(model.state_dict(), os.path.join(sequential_path, 'model.pth'))
 
     return model
 
 def load_frozen(path, **kwargs):
+    logging.info(f'loading sequential model from {path}')
     params_path = os.path.join(path, 'params.json')
     with open(params_path, 'r') as conf_file:
         config = json.loads(conf_file.read())
@@ -124,10 +126,13 @@ def load_frozen(path, **kwargs):
     args = ModelArgs(**config)
     args.init_frozen = False
     args.served_model_path = path
+    logging.info(f'creating model instance')
     model = Transformer(args)
+    logging.info(f'loading model dict')
     model.load_state_dict(torch.load(os.path.join(path, 'model.pth')), strict=False)
     return model
 
+# this is merging LoRA back to original weights in llama2 format
 def add_lora(model_path, lora_path):
     lora_weights = torch.load(lora_path, map_location='cpu')
     paths = sorted(glob.glob(f'{model_path}/consolidated.*.pth'))

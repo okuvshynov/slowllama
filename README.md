@@ -242,6 +242,8 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
     [x] better way to merge - no need to read sequential format.
     [x] save params.json
 [ ] masking
+[ ] more generic train routine
+[ ] how to make it work with fp16 on Apple?
 [x] reimplement tokenizer
 [ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
 [ ] gradient accumulation

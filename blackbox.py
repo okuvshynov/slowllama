@@ -64,6 +64,7 @@ class BlackboxDisk(torch.nn.Module):
             return module(input, *args)
 
 # same blackbox, but RAM only.
+# do we really need this? with enough RAM we can just offload with fairscale?
 class BlackboxRAM(torch.nn.Module):
     def __init__(self, module, args):
         super().__init__()

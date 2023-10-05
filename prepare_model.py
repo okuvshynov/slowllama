@@ -3,7 +3,7 @@
 import torch
 import logging
 
-from loader import load_llama2
+from loader import prepare_model
 
 seed = 54321
 device = 'mps' # mps for macbooks
@@ -11,10 +11,10 @@ offload_to = 'disk'
 
 compute_dtype = torch.float32
 
-llama2_model_path = '/Volumes/LLAMAS/llama-2-7b'
+llama2_model_path = '../llama-2-7b'
 served_model_path = '../llama7b/'
 
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='logs/prepare_model.log')
 torch.random.manual_seed(seed)
 
-model = load_llama2(llama2_model_path, compute_dtype=compute_dtype, offload_location=offload_to, served_model_path=served_model_path).to(device).to(compute_dtype)
+prepare_model(llama2_path=llama2_model_path, sequential_path=served_model_path, compute_dtype=compute_dtype, offload_location=offload_to).to(device).to(compute_dtype)

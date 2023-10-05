@@ -1,9 +1,8 @@
 import os
-import sys
 import torch
 import logging
 
-from loader import load_llama2, load_frozen
+from loader import load_frozen
 from plot_lora import log_lora
 from utils import Tokenizer, greedy_gen
 
