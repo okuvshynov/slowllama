@@ -6,7 +6,8 @@ import glob
 import logging
 import shutil
 
-from blackbox_model import Transformer, ModelArgs
+from model_config import ModelArgs
+from blackbox_model import Transformer
 
 vocab_size = 32000
 
