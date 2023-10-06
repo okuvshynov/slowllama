@@ -1,5 +1,6 @@
 import torch
 import sentencepiece
+import logging
 
 def device_map(device):
     if str(device).startswith('mps'):
@@ -54,11 +55,11 @@ def greedy_gen(model, tokenizer, device, prompt, max_new_tokens=50):
         logits = model(tokens)
         logits = logits[:, -1, :]
         _, next_token = torch.topk(logits, k=1, dim=-1)
-        print(f'next token: {next_token} {tokenizer.decode(next_token.tolist())}')
+        logging.info(f'next token: {next_token} {tokenizer.decode(next_token.tolist())}')
         tokens = torch.cat((tokens, next_token), dim=1)
 
     for i, output in enumerate(tokens):
-        print(f'{i} - {tokenizer.decode(output.tolist())}')
+        logging.info(f'{i} - {tokenizer.decode(output.tolist())}')
     
 class Tokenizer:
     def __init__(self, path):

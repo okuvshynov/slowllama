@@ -81,7 +81,6 @@ def prepare_model(llama2_path, sequential_path, **kwargs):
                 if hasattr(submodule, 'weight'):
                     full_path = f'{prefix}{title}.weight'
                     weight_subset = checkpoint[full_path]
-                    #print(title, submodule, full_path, weight_subset.shape)
                     apply_subset(submodule, weight_subset, ci, title)
                     del checkpoint[full_path]
                     gc.collect()
@@ -162,11 +161,7 @@ def add_lora(model_path, lora_path):
                 b_key = f'{attn_key}_lora_{layer}.B.weight'
                 lora = lora_weights[b_key].mm(lora_weights[a_key]) * lora_scale
                 subset = get_w_subset(local_path, lora, shards, ci)
-                print(lora.shape, subset, checkpoint[checkpoint_key].shape, lora[subset].shape)
-                print(lora.dtype, checkpoint[checkpoint_key].dtype)
                 checkpoint[checkpoint_key] = checkpoint[checkpoint_key] + lora[subset].to(torch.bfloat16)
-                print(lora.shape, subset, checkpoint[checkpoint_key].shape, lora[subset].shape)
-                print(lora.dtype, checkpoint[checkpoint_key].dtype)
         torch.save(checkpoint, checkpoint_path)
         del checkpoint
         gc.collect()
