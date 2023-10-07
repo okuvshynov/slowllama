@@ -10,8 +10,8 @@ from utils import Tokenizer, greedy_gen
 seed = 54321
 iters = 1000
 device = 'mps' # mps for macbooks
-seq_len = 1024
-batch_size = 2
+seq_len = 128
+batch_size = 16
 lr = 1e-4
 offload_to = 'disk'
 
@@ -26,10 +26,12 @@ gen_tokens = 32
 log_lora_grad = False
 log_lora_weight = True
 
-model_path = '../llama70b'
+model_path = '../llama7b'
 snapshots_path = 'out'
-finetune_file = './README.md'
-prompt = 'slowllama is a '
+finetune_file = './test_data/cubestat.txt'
+prompt = 'Cubestat reports the following metrics: '
+
+lora_rank = 4
 
 if not os.path.exists(snapshots_path):
     os.makedirs(snapshots_path)
@@ -37,9 +39,6 @@ if not os.path.exists(snapshots_path):
 # data to finetune on
 with open(finetune_file) as f:
     text = f.read()
-
-tokenizer_path = os.path.join(model_path, 'tokenizer.model')
-tokenizer = Tokenizer(tokenizer_path)
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='logs/finetune.log')
@@ -52,7 +51,7 @@ if __name__ == '__main__':
 
     logging.info(f'loaded dataset: {len(tokens)} tokens')
 
-    model = load_frozen(model_path, compute_dtype=compute_dtype).to(device).to(compute_dtype)
+    model = load_frozen(model_path, compute_dtype=compute_dtype, lora_rank=lora_rank).to(device).to(compute_dtype)
 
     def get_batch(batch_size):
         index = torch.randint(len(tokens) - seq_len, (batch_size,))

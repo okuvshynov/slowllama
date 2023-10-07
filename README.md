@@ -10,6 +10,8 @@ Finetuning is the only focus, there's nothing special done for inference, consid
 
 For CUDA-specific experiments, see [report on a10](docs/a10.md).
 
+It is all very experimental, but even more so for CUDA.
+
 ### Example
 
 Tests were done on Apple M1 with 16Gb memory and Apple M2 with 24Gb memory. 
@@ -88,7 +90,7 @@ Maybe we were overfitting already at this point.
 Running completion with newly produced lora checkpoint can be done like this:
 
 ```
-python test_gen.py ../llama-2-7b mps ./data/state_dict_29.pth
+python test_gen.py ../llama7b mps ./out/state_dict_19.pth
 ```
 
 ### How does it work?
@@ -238,29 +240,19 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 ### TODO:
 
 ```
-[x] merge lora weights with base model weights and export the combined result in original format.
-    [x] better way to merge - no need to read sequential format.
-    [x] save params.json
 [ ] masking
 [ ] more generic train routine
+    [ ] pause/resume from LoRA snapshot
+    [ ] do not create LoRA layers on prepare, only on finetune?
 [ ] how to make it work with fp16 on Apple?
-[x] reimplement tokenizer
 [ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
 [ ] gradient accumulation
 [ ] plot something like memory requirement for (batch_size , seq_len)
-[x] check if/how it works on CUDA;
-[x] rope -- double-check the values in original checkpoint vs what's being computed.
-[x] make lora params (rank, alpha, dropout) easily configurable;
-[x] try RAM offload
-[x] AdamW
-[x] logging weight/gradient distribution
 [ ] combined RAM/disk offload - 200Gb RAM is rarity.
 [ ] tests, cleanup and comments;
 [ ] progress tracking for everything;
-[x] quantization? at least 16 bit?;
 [ ] quantization beyond 16 bit?
-[x] improve model loading time;
-[x] configurable weight tying;
+[ ] configurable weight tying;
 [ ] double check RNG state correctness.
 ```
 
