@@ -1,6 +1,8 @@
 import logging
 
 def log_lora(lora_layers, log_weights=True, log_grad=True, log_level=logging.INFO):
+    if not log_weights and not log_grad:
+        return
     try:
         from fewlines import bar
     except ImportError:

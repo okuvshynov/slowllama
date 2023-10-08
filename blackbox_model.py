@@ -229,8 +229,6 @@ class LoRA(nn.Module):
         return self.dropout(self.B(self.A(x))) * self.scale
 
 class Transformer(nn.Module):
-    last_loss: Optional[torch.Tensor]
-
     def __init__(self, params: ModelArgs):
         super().__init__()
         self.params = params
@@ -261,10 +259,7 @@ class Transformer(nn.Module):
         self.register_buffer("freqs_cos", freqs_cos, persistent=False)
         self.register_buffer("freqs_sin", freqs_sin, persistent=False)
 
-        # Initialize attribute for the loss of the last forward call. This will be set if the forward is called with a targets tensor.
-        self.last_loss = None
-
-    def forward(self, tokens: torch.Tensor, targets: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
         _bsz, seqlen = tokens.shape
 
         # dummy input to force gradient propagation to blackbox modules
@@ -277,16 +272,7 @@ class Transformer(nn.Module):
             h = layer(h, freqs_cos, freqs_sin, lora['q_lora'], lora['v_lora'])
         h = self.norm(h)
 
-        if targets is not None:
-            # if we are given some desired targets also calculate the loss
-            logits = self.output(h)
-            self.last_loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
-        else:
-            # inference-time mini-optimization: only forward the output on the very last position
-            logits = self.output(h[:, [-1], :]) # note: using list [-1] to preserve the time dim
-            self.last_loss = None
-
-        return logits
+        return self.output(h[:, [-1], :])
     
     def backprop_w_lora(self, blackbox_module, output_grad, *args):
         device = output_grad.device

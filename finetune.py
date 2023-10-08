@@ -8,7 +8,7 @@ from utils import Tokenizer, greedy_gen
 
 # training settings
 seed = 54321
-iters = 1000
+iters = 20
 device = 'mps' # mps for macbooks
 seq_len = 128
 batch_size = 16
@@ -44,9 +44,7 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='logs/finetune.log')
     torch.random.manual_seed(seed)
 
-    tokenizer_path = os.path.join(model_path, 'tokenizer.model')
-
-    tokenizer = Tokenizer(tokenizer_path)
+    tokenizer = Tokenizer(os.path.join(model_path, 'tokenizer.model'))
     tokens = tokenizer.encode(text, True, True)
 
     logging.info(f'loaded dataset: {len(tokens)} tokens')
@@ -74,8 +72,7 @@ if __name__ == '__main__':
         opt.step()
 
         # optional logging of lora weights/gradients
-        if log_lora_grad or log_lora_weight:
-            log_lora(model.lora_layers, log_weights=log_lora_weight, log_grad=log_lora_grad)
+        log_lora(model.lora_layers, log_weights=log_lora_weight, log_grad=log_lora_grad)
 
         logging.info(f'backprop done, loss after forward pass = {loss}')
         if last_loss is None:
