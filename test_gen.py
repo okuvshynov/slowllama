@@ -17,7 +17,7 @@ tokenizer = Tokenizer(tokenizer_path)
 
 model = load_frozen(sys.argv[1], dropout=0.0, lora_rank=4).to(device)
 if lora_weights is not None:
-    print(model.load_state_dict(torch.load(lora_weights), strict=False))
+    logging.debug(model.load_state_dict(torch.load(lora_weights), strict=False))
 
 prompt = 'Cubestat reports the following metrics: '
 

@@ -33,16 +33,19 @@ prompt = 'Cubestat reports the following metrics: '
 
 lora_rank = 4
 
-if not os.path.exists(snapshots_path):
-    os.makedirs(snapshots_path)
+log_level = logging.DEBUG
 
-# data to finetune on
-with open(finetune_file) as f:
-    text = f.read()
 
 if __name__ == '__main__':
-    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='logs/finetune.log')
+    logging.basicConfig(format='%(asctime)s %(message)s', level=log_level, filename='logs/finetune.log')
     torch.random.manual_seed(seed)
+
+    if not os.path.exists(snapshots_path):
+        os.makedirs(snapshots_path)
+
+    # data to finetune on
+    with open(finetune_file) as f:
+        text = f.read()
 
     tokenizer = Tokenizer(os.path.join(model_path, 'tokenizer.model'))
     tokens = tokenizer.encode(text, True, True)

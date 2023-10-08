@@ -249,6 +249,7 @@ class Transformer(nn.Module):
             self.add_module(f'q_lora_{layer_id}', q_lora)
             self.add_module(f'v_lora_{layer_id}', v_lora)
             self.layers.append(wrap_blackbox(block, params))
+            logging.debug(f'created transformer block {layer_id}')
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
         self.norm.requires_grad = False
@@ -284,11 +285,7 @@ class Transformer(nn.Module):
             param.requires_grad = False
 
         input = blackbox_module.load_input(device)
-
-        # TODO: don't need that check? 
-        # we don't backprop through embeddings at all.
-        if 'float' in str(input.dtype):
-            input.requires_grad = True
+        input.requires_grad = True
         
         output = module(input, *args)
         output.backward(output_grad)
@@ -313,11 +310,10 @@ class Transformer(nn.Module):
         current = self.dropout(embd_out)
         rng_before = []
 
-        for layer, lora in zip(self.layers, self.lora_layers):
-            logging.log(level=logging.DEBUG, msg=f'next transformer block')
+        for i, (layer, lora) in enumerate(zip(self.layers, self.lora_layers)):
             rng_before.append(save_rng_state(device))
             current = layer(current, freqs_cos, freqs_sin, lora['q_lora'], lora['v_lora'])
-            logging.log(level=logging.DEBUG, msg=f'next transformer block done')
+            logging.log(level=logging.DEBUG, msg=f'forward: transformer block {i} done')
 
         current = current.detach()
         current.requires_grad = True
@@ -334,19 +330,22 @@ class Transformer(nn.Module):
         logits.requires_grad = True
 
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+        logging.log(level=logging.DEBUG, msg=f'forward: computed loss')
 
         loss.backward()
 
         norm_out_grad = self.backprop_w_lora(self.output, logits.grad)
+        logging.log(level=logging.DEBUG, msg=f'combined: output layer done')
 
         norm_out2 = self.norm(current)
         norm_out2.backward(norm_out_grad)
 
         last_grad = current.grad
 
-        for (layer, rng_state, lora) in zip(reversed(self.layers), reversed(rng_before), reversed(self.lora_layers)):
+        for i, (layer, rng_state, lora) in enumerate(zip(reversed(self.layers), reversed(rng_before), reversed(self.lora_layers))):
             restore_rng_state(rng_state, device=device)
             last_grad = self.backprop_w_lora(layer, last_grad, freqs_cos, freqs_sin, lora['q_lora'], lora['v_lora'])
+            logging.log(level=logging.DEBUG, msg=f'combined: transformer block {i} done')
 
         # no need to backpropagate through embeddings, there's no LoRA layers there.
         return logits, loss.item()
