@@ -24,3 +24,4 @@ class ModelArgs:
     served_model_path: str = '' # relative path by default
     cached_data_path: str = ''  # relative path by default
     init_frozen: bool = True
+    frozen_dtype: torch.dtype = torch.bfloat16

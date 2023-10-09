@@ -109,7 +109,7 @@ def prepare_model(llama2_path, sequential_path, **kwargs):
     # - tokenizer?'
     shutil.copy(params_path, os.path.join(sequential_path, 'params.json'))
     shutil.copy(os.path.join(llama2_path, 'tokenizer.model'), os.path.join(sequential_path, 'tokenizer.model'))
-    torch.save(model.state_dict(), os.path.join(sequential_path, 'model.pth'))
+    torch.save(model.to(args.frozen_dtype).state_dict(), os.path.join(sequential_path, 'model.pth'))
 
     return model
 
@@ -127,7 +127,7 @@ def load_frozen(path, **kwargs):
     args.init_frozen = False
     args.served_model_path = path
     logging.info(f'creating model instance')
-    model = Transformer(args)
+    model = Transformer(args).to(args.compute_dtype)
     logging.info(f'loading model dict')
     model.load_state_dict(torch.load(os.path.join(path, 'model.pth')), strict=False)
     return model

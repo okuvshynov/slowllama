@@ -326,7 +326,7 @@ class Transformer(nn.Module):
         logging.log(level=logging.DEBUG, msg=f'output layer')
         logits = self.output(norm_out)
         logging.log(level=logging.DEBUG, msg=f'output layer done')
-        logits = logits.detach()
+        logits = logits.to(torch.float32).detach()
         logits.requires_grad = True
 
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
@@ -334,7 +334,7 @@ class Transformer(nn.Module):
 
         loss.backward()
 
-        norm_out_grad = self.backprop_w_lora(self.output, logits.grad)
+        norm_out_grad = self.backprop_w_lora(self.output, logits.grad.to(torch.float16))
         logging.log(level=logging.DEBUG, msg=f'combined: output layer done')
 
         norm_out2 = self.norm(current)
