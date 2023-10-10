@@ -6,37 +6,7 @@ from loader import load_frozen
 from plot_lora import log_lora
 from utils import Tokenizer, greedy_gen
 
-# training settings
-seed = 54321
-iters = 20
-device = 'mps' # mps for macbooks
-seq_len = 128
-batch_size = 16
-lr = 1e-4
-adamw_eps = 1e-4 # need to change as 1e-8 doesn't fit to float16
-offload_to = 'disk'
-
-# type used for computation. Might be different from storage type (which is bfloat16)
-#compute_dtype = torch.float32 # float32 for macbooks
-#compute_dtype = torch.bfloat16 # bfloat16 for CUDA
-compute_dtype = torch.float16
-frozen_dtype = torch.float16
-
-eval_before_training = False
-eval_period = 20
-gen_tokens = 32
-
-log_lora_grad = False
-log_lora_weight = True
-
-model_path = '../llama7b_f16'
-snapshots_path = 'out'
-finetune_file = './test_data/cubestat.txt'
-prompt = 'Cubestat reports the following metrics: '
-
-lora_rank = 4
-
-log_level = logging.DEBUG
+from conf_fp32 import *
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(message)s', level=log_level, filename='logs/finetune.log')
@@ -49,12 +19,12 @@ if __name__ == '__main__':
     with open(finetune_file) as f:
         text = f.read()
 
-    tokenizer = Tokenizer(os.path.join(model_path, 'tokenizer.model'))
+    tokenizer = Tokenizer(os.path.join(frozen_model_path, 'tokenizer.model'))
     tokens = tokenizer.encode(text, True, True)
 
     logging.info(f'loaded dataset: {len(tokens)} tokens')
 
-    model = load_frozen(model_path, compute_dtype=compute_dtype, lora_rank=lora_rank, frozen_dtype=frozen_dtype).to(device).to(compute_dtype)
+    model = load_frozen(frozen_model_path, compute_dtype=compute_dtype, lora_rank=lora_rank, frozen_dtype=frozen_dtype).to(device).to(compute_dtype)
 
     def get_batch(batch_size):
         index = torch.randint(len(tokens) - seq_len, (batch_size,))

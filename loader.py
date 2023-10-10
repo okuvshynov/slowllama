@@ -9,8 +9,6 @@ import shutil
 from model_config import ModelArgs
 from blackbox_model import Transformer
 
-vocab_size = 32000
-
 # how are weights sharded in llama2 - by rows or columns
 join_dim = {
     'attention.wq': 0,
@@ -51,17 +49,17 @@ def apply_subset(module, weight_subset, checkpoint_index, title):
         idx_subset = get_subset(title, weight_subset, checkpoint_index)
         module.weight[idx_subset] = weight_subset
 
-def prepare_model(llama2_path, sequential_path, **kwargs):
+def prepare_model(llama2_path, frozen_path, **kwargs):
     params_path = os.path.join(llama2_path, 'params.json')
     with open(params_path, 'r') as conf_file:
         config = json.loads(conf_file.read())
 
-    config['vocab_size'] = vocab_size
     for k, v in kwargs.items():
         config[k] = v
 
     args = ModelArgs(**config)
-    args.served_model_path = sequential_path
+    args.vocab_size = args.vocab_size_override
+    args.served_model_path = frozen_path
 
     logging.info('creating model instance')
     model = Transformer(args)
@@ -107,9 +105,9 @@ def prepare_model(llama2_path, sequential_path, **kwargs):
     # - params.json
     # - model dict itself (norm + Lora)
     # - tokenizer?'
-    shutil.copy(params_path, os.path.join(sequential_path, 'params.json'))
-    shutil.copy(os.path.join(llama2_path, 'tokenizer.model'), os.path.join(sequential_path, 'tokenizer.model'))
-    torch.save(model.to(args.frozen_dtype).state_dict(), os.path.join(sequential_path, 'model.pth'))
+    shutil.copy(params_path, os.path.join(frozen_path, 'params.json'))
+    shutil.copy(os.path.join(llama2_path, 'tokenizer.model'), os.path.join(frozen_path, 'tokenizer.model'))
+    torch.save(model.to(args.frozen_dtype).state_dict(), os.path.join(frozen_path, 'model.pth'))
 
     return model
 
@@ -119,11 +117,11 @@ def load_frozen(path, **kwargs):
     with open(params_path, 'r') as conf_file:
         config = json.loads(conf_file.read())
 
-    config['vocab_size'] = vocab_size
     for k, v in kwargs.items():
         config[k] = v
 
     args = ModelArgs(**config)
+    args.vocab_size = args.vocab_size_override
     args.init_frozen = False
     args.served_model_path = path
     logging.info(f'creating model instance')

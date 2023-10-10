@@ -6,11 +6,6 @@ import torch
 from utils import device_map, next_id, device_supports_dtype
 from model_config import ModelArgs
 
-# a wrapper around arbitrary module which can save/load inner model to hard drive
-# we store base weights always as bfloat16 (that's what llama2 uses)
-# but we need to load and return it as a type we use for computation.
-# it gets a little more tricky for MPS device because we cannot load bfloat16 there 
-# directly.
 class BlackboxDisk(torch.nn.Module):
     def __init__(self, module, args: ModelArgs):
         super().__init__()
@@ -19,6 +14,7 @@ class BlackboxDisk(torch.nn.Module):
         self.compute_dtype = args.compute_dtype
         self.served_model_path = args.served_model_path
         self.cached_data_path = args.cached_data_path
+        # TODO: can we deduce this from the data itself
         self.frozen_dtype = args.frozen_dtype
         if args.init_frozen:
             torch.save(module.to('cpu').to(self.frozen_dtype), self.frozen_path())
@@ -43,7 +39,7 @@ class BlackboxDisk(torch.nn.Module):
             return torch.load(self.frozen_path(), map_location=device_map(device)).to(self.compute_dtype)
         else:
             res = torch.load(self.frozen_path(), map_location='cpu')
-            return res.to(self.frozen_dtype).to(device_map(device))
+            return res.to(self.compute_dtype).to(device_map(device))
 
     def save(self, module):
         torch.save(module.to('cpu').to(self.frozen_dtype), self.frozen_path())
