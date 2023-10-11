@@ -5,19 +5,20 @@ import os
 
 from loader import load_frozen
 from utils import Tokenizer, greedy_gen
+from conf_fp16 import *
 
-logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
-    
-model_path = sys.argv[1]
-device = sys.argv[2] if len(sys.argv) > 2 else 'cpu'
-lora_weights = sys.argv[3] if len(sys.argv) > 3 else None
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
-tokenizer_path = os.path.join(model_path, 'tokenizer.model')
+lora_weights = sys.argv[1] if len(sys.argv) > 1 else None
+
+tokenizer_path = os.path.join(frozen_model_path, 'tokenizer.model')
 tokenizer = Tokenizer(tokenizer_path)
 
-model = load_frozen(sys.argv[1], dropout=0.0, lora_rank=4).to(device)
+model = load_frozen(frozen_model_path, dropout=0.0, lora_rank=4, frozen_dtype=frozen_dtype, compute_dtype=compute_dtype).to(device)
 if lora_weights is not None:
     logging.debug(model.load_state_dict(torch.load(lora_weights), strict=False))
+
+logging.info('Model loaded.')
 
 prompt = 'Cubestat reports the following metrics: '
 
