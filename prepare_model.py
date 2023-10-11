@@ -4,7 +4,7 @@ import torch
 import logging
 
 from loader import prepare_model
-from conf_fp32 import *
+from conf_fp16 import *
 
 logging.basicConfig(format='%(asctime)s %(message)s',
                     level=logging.INFO, filename='logs/prepare_model.log')

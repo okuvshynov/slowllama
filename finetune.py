@@ -6,7 +6,7 @@ from loader import load_frozen
 from plot_lora import log_lora
 from utils import Tokenizer, greedy_gen
 
-from conf_fp32 import *
+from conf_fp16 import *
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(message)s', level=log_level, filename='logs/finetune.log')
