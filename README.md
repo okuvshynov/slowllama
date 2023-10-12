@@ -12,6 +12,13 @@ For CUDA-specific experiments, see [report on a10](docs/a10.md).
 
 It is all very experimental, but even more so for CUDA.
 
+**Float16 update:**
+
+Using Fp16 both for storing frozen weights and compute on MPS devices considerably improves memory requirements and time for iteration. A few notes: 
+* update torch to 2.1.0, otherwise mps might try to use apple neural engine for fp16 compute and it's not working quite well yet (see https://github.com/pytorch/pytorch/issues/110975) 
+* time win comes from the fact that we don't have to transform each block from bf16 to fp32.
+* now prefetch and saving in different format might make a larger difference.
+
 ### Example
 
 Tests were done on Apple M1 with 16Gb memory and Apple M2 with 24Gb memory. 
