@@ -12,12 +12,7 @@ For CUDA-specific experiments, see [report on a10](docs/a10.md).
 
 It is all very experimental, but even more so for CUDA.
 
-**Float16 update:**
 
-Using Fp16 both for storing frozen weights and compute on MPS devices considerably improves memory requirements and time for iteration. A few notes: 
-* update torch to 2.1.0, otherwise mps might try to use apple neural engine for fp16 compute and it's not working quite well yet (see https://github.com/pytorch/pytorch/issues/110975) 
-* time win comes from the fact that we don't have to transform each block from bf16 to fp32.
-* now prefetch and saving in different format might make a larger difference.
 
 ### Example
 
@@ -29,7 +24,6 @@ In order to fine-tune llama2 model we need to:
 ```
 /parent/
     /slowllama/...   # <- this repo
-    /codellama/...   # <-- this is Meta's codellama repository.
     /llama-2-7b/...  # <- put tokenizer.model here
     /llama-2-13b/... # <- and here
     /llama-2-70b/... # <- and here as well
@@ -116,6 +110,9 @@ Original llama2 weights are in bfloat16, but mps backend doesn't support that ty
 
 Experimental version of slowllama which can be still found [here](https://github.com/okuvshynov/experiments/tree/5cf944cb1274e577d1e755e6ad1957190d286d9d/split_model) was capable of doing full finetuning and update all weights pretty much the same way. I've temporarily removed that feature to preserve the lifespan of SSDs, as frequent write operations can degrade performance over time. Reading from SSDs isn't an issue, but they do have a write limit. Limit is typically high enough for normal usage, but in the case of full finetunining we'll have to write ~150Gb per one iteration/weight update of 70B variant, assuming stateless optimizer and no gradient accumulation. With AdamW we'll have to save/update another 150Gb more of optimizer state per iteration. If, for example, we assume 1Pb of writes before SSD will start having issues, even 100 iterations of finetuning would incur significant cost/risk. For machines with GPUs and large amount of RAM we can skip the disk entirely and offload to RAM only. It should be possible to bring full finetuning back for main-memory-only offload. On the other hand, if everything fits into memory, there's no need to do whole 'evaluate twice' thing, might just use [fairscale](https://fairscale.readthedocs.io/en/stable/deep_dive/offload.html) instead and only move tensors between GPU/CPU.
 
+
+
+
 ### Experiments 
 
 #### Llama2 7B finetune on M1 Mini (16Gb memory):
@@ -193,6 +190,22 @@ We used prompt 'slowllama is a ', and here you can see the completions:
 
 Current setup is probably too slow for 70B model finetuning on old mac mini M1. It would be interesting to try it on more recent hardware (say, M2 Max / M2 Pro), implement prefetch/async save and see how it's going to work.
 
+**Float16 update:**
+
+Using Fp16 both for storing frozen weights and compute on MPS devices considerably improves memory requirements and time for iteration. A few notes: 
+* update torch to 2.1.0, otherwise mps might try to use apple neural engine for fp16 compute and it's not working quite well yet (see https://github.com/pytorch/pytorch/issues/110975) 
+* time win comes from the fact that we don't have to transform each block from bf16 to fp32.
+
+Here you can see finetune 70B model with M1 mac mini where weights are stored in fp16 and compute is done in fp16 as well. Input size is fairly small - batch size = 16 and seq_len = 128.
+
+Forward pass with 100ms granularity
+![finetune](static/finetune_fwd.png)
+
+Combined pass with 100ms granularity
+![finetune](static/finetune_combined.png)
+
+GPU utilization is at ~89% for combined pass and ~78% for forward. Now prefetch and saving in different format might make a difference.
+
 ### merging LoRA weights back
 
 In order to merge LoRA checkpoint back to the model in original format, we can do the following:
@@ -251,7 +264,6 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 [ ] more generic train routine
     [ ] pause/resume from LoRA snapshot
     [ ] do not create LoRA layers on prepare, only on finetune?
-[ ] how to make it work with fp16 on Apple?
 [ ] optimizations - prefetch the next layer/input, save asyncronously, etc;
 [ ] gradient accumulation
 [ ] plot something like memory requirement for (batch_size , seq_len)
