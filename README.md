@@ -256,6 +256,10 @@ Just a few files with no dependencies other than torch, numpy and sentencepiece 
 
 ```
 [ ] masking
+[ ] optimizations -- focus on memory usage
+    [ ] consider splitting transformer block into attention/ff
+    [ ] check if loading state dict to the same block instance would avoid the reallocation
+    [ ] microopt - no need to compute gradient for some of the leaf parts
 [ ] more generic train routine
     [ ] pause/resume from LoRA snapshot
     [ ] do not create LoRA layers on prepare, only on finetune?

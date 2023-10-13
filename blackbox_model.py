@@ -351,5 +351,5 @@ class Transformer(nn.Module):
             last_grad = self.backprop_w_lora(layer, last_grad, freqs_cos, freqs_sin, lora['q_lora'], lora['v_lora'])
             logging.log(level=logging.DEBUG, msg=f'combined: transformer block {i} done')
 
-        # no need to backpropagate through embeddings, there's no LoRA layers there.
+        # no need to backpropagate through embeddings no LoRA layers there.
         return logits, loss.item()
