@@ -12,8 +12,6 @@ For CUDA-specific experiments, see [report on a10](docs/a10.md).
 
 It is all very experimental, but even more so for CUDA.
 
-
-
 ### Example
 
 Tests were done on Apple M1 with 16Gb memory and Apple M2 with 24Gb memory. 
@@ -108,10 +106,7 @@ Backward pass is a little more tricky, in a way we have to run forward pass twic
 
 Original llama2 weights are in bfloat16, but mps backend doesn't support that type natively, so we do computation in float32 instead.
 
-Experimental version of slowllama which can be still found [here](https://github.com/okuvshynov/experiments/tree/5cf944cb1274e577d1e755e6ad1957190d286d9d/split_model) was capable of doing full finetuning and update all weights pretty much the same way. I've temporarily removed that feature to preserve the lifespan of SSDs, as frequent write operations can degrade performance over time. Reading from SSDs isn't an issue, but they do have a write limit. Limit is typically high enough for normal usage, but in the case of full finetunining we'll have to write ~150Gb per one iteration/weight update of 70B variant, assuming stateless optimizer and no gradient accumulation. With AdamW we'll have to save/update another 150Gb more of optimizer state per iteration. If, for example, we assume 1Pb of writes before SSD will start having issues, even 100 iterations of finetuning would incur significant cost/risk. For machines with GPUs and large amount of RAM we can skip the disk entirely and offload to RAM only. It should be possible to bring full finetuning back for main-memory-only offload. On the other hand, if everything fits into memory, there's no need to do whole 'evaluate twice' thing, might just use [fairscale](https://fairscale.readthedocs.io/en/stable/deep_dive/offload.html) instead and only move tensors between GPU/CPU.
-
-
-
+Experimental version of slowllama which can be still found [here](https://github.com/okuvshynov/experiments/tree/5cf944cb1274e577d1e755e6ad1957190d286d9d/split_model) was capable of doing full finetuning and update all weights pretty much the same way. I've temporarily removed that feature to preserve the lifespan of SSDs, as frequent write operations can degrade performance over time. Reading from SSDs isn't an issue, but they do have a write limit. Limit is typically high enough for normal usage, but in the case of full finetunining we'll have to write ~150Gb per one iteration/weight update of 70B variant, assuming stateless optimizer and no gradient accumulation. With AdamW we'll have to save/update another 150Gb more of optimizer state per iteration. If, for example, we assume 1Pb of writes before SSD will start having issues, even 100 iterations of finetuning would incur significant cost/risk.
 
 ### Experiments 
 

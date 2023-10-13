@@ -17,7 +17,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from blackbox import wrap_blackbox
+from blackbox import BlackboxDisk
 from utils import save_rng_state, restore_rng_state, device_map
 from model_config import ModelArgs
 
@@ -235,7 +235,7 @@ class Transformer(nn.Module):
         self.vocab_size = params.vocab_size
         self.n_layers = params.n_layers
 
-        self.tok_embeddings = wrap_blackbox(nn.Embedding(params.vocab_size, params.dim), params)
+        self.tok_embeddings = BlackboxDisk(nn.Embedding(params.vocab_size, params.dim), params)
         self.dropout = nn.Dropout(params.dropout)
         self.layers = torch.nn.ModuleList()
 
@@ -248,12 +248,12 @@ class Transformer(nn.Module):
             self.lora_layers.append({ 'q_lora': q_lora, 'v_lora': v_lora})
             self.add_module(f'q_lora_{layer_id}', q_lora)
             self.add_module(f'v_lora_{layer_id}', v_lora)
-            self.layers.append(wrap_blackbox(block, params))
+            self.layers.append(BlackboxDisk(block, params))
             logging.debug(f'created transformer block {layer_id}')
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
         self.norm.requires_grad = False
-        self.output = wrap_blackbox(nn.Linear(params.dim, params.vocab_size, bias=False), params)
+        self.output = BlackboxDisk(nn.Linear(params.dim, params.vocab_size, bias=False), params)
 
         # some useful precompute for the RoPE relative positional embeddings
         freqs_cos, freqs_sin = precompute_freqs_cis(self.params.dim // self.params.n_heads, self.params.max_seq_len, theta=params.rope_theta)

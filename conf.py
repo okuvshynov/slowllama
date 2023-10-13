@@ -7,7 +7,7 @@ seed = 54321
 lr = 1e-4
 
 log_lora_grad = False
-log_lora_weight = True
+log_lora_weight = False
 
 lora_rank = 4
 
