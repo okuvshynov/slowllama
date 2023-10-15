@@ -352,4 +352,4 @@ class Transformer(nn.Module):
             logging.log(level=logging.DEBUG, msg=f'combined: transformer block {i} done')
 
         # no need to backpropagate through embeddings no LoRA layers there.
-        return logits, loss.item()
+        return loss.item()

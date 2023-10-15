@@ -43,7 +43,7 @@ if __name__ == '__main__':
         opt.zero_grad()
         # both forward and backward passes are here.
         # returned loss is a scalar, not variable
-        logits, loss = model.manual_loop(X, y)
+        loss = model.manual_loop(X, y)
         opt.step()
 
         # optional logging of lora weights/gradients
