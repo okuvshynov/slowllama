@@ -17,7 +17,7 @@ log_level = logging.DEBUG
 
 iters = 20
 seq_len = 512
-batch_size = 20
+batch_size = 24
 
 eval_before_training = False
 eval_period = 20
@@ -27,4 +27,4 @@ snapshots_path = 'out'
 finetune_file = './README.md'
 prompt = 'Cubestat reports the following metrics: '
 
-llama2_model_path = '../llama-2-70b'
+llama2_model_path = '/Volumes/LLAMAS/llama-2-70b'

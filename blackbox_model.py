@@ -18,7 +18,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from blackbox import BlackboxDisk
-from utils import save_rng_state, restore_rng_state, device_map
+from utils import save_rng_state, restore_rng_state, device_map, cleanup_cache
 from model_config import ModelArgs
 
 import logging
@@ -201,9 +201,6 @@ class TransformerBlock(nn.Module):
         self.dim = args.dim
         self.head_dim = args.dim // args.n_heads
 
-        #self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
-        #self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps)
-
         self.attention = BlackboxDisk(Attention(args), args)
         self.feed_forward = BlackboxDisk(FeedForward(
             dim=args.dim,
@@ -322,6 +319,8 @@ class Transformer(nn.Module):
         freqs_sin = self.freqs_sin[:seqlen]
 
         current = self.dropout(embd_out)
+        del embd_out
+
         rng_before = []
 
         for i, (layer, lora) in enumerate(zip(self.layers, self.lora_layers)):
@@ -339,6 +338,8 @@ class Transformer(nn.Module):
         # TODO: micro-optimization: as output is last layer, we can skip loading and running it second time 
         logging.log(level=logging.DEBUG, msg=f'output layer')
         logits = self.output(norm_out)
+        del norm_out
+
         logging.log(level=logging.DEBUG, msg=f'output layer done')
 
         if (self.params.compute_dtype != torch.float32):
@@ -353,19 +354,25 @@ class Transformer(nn.Module):
         loss.backward()
 
         norm_out_grad = self.backprop_w_lora(self.output, logits.grad.to(self.params.compute_dtype))
+        del logits
         logging.log(level=logging.DEBUG, msg=f'combined: output layer done')
 
         norm_out2 = self.norm(current)
         norm_out2.backward(norm_out_grad)
+        del norm_out_grad
+        del norm_out2
 
         last_grad = current.grad
+        del current
 
         for i, (layer, rng_state, lora) in enumerate(zip(reversed(self.layers), reversed(rng_before), reversed(self.lora_layers))):
+            cleanup_cache()
             restore_rng_state(rng_state, device=device)
             # first, do feed_forward
             last_grad = self.backprop_w_lora(layer.feed_forward, last_grad)
-            
+
             # now, do attention
+            cleanup_cache()
             last_grad = self.backprop_w_lora(layer.attention, last_grad, freqs_cos, freqs_sin, lora['q_lora'], lora['v_lora'])
             logging.log(level=logging.DEBUG, msg=f'combined: transformer block {i} done')
 

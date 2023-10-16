@@ -60,6 +60,12 @@ def greedy_gen(model, tokenizer, device, prompt, max_new_tokens=50):
 
     for i, output in enumerate(tokens):
         logging.info(f'{i} - {tokenizer.decode(output.tolist())}')
+
+def cleanup_cache(device='cpu'):
+    if device.startswith('mps'):
+        import torch.mps
+        torch.mps.empty_cache()
+
     
 class Tokenizer:
     def __init__(self, path):
