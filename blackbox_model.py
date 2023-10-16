@@ -122,6 +122,8 @@ class Attention(nn.Module):
             mask = torch.triu(mask, diagonal=1)
             self.register_buffer("mask", mask)
 
+        self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
+
     def forward(
         self,
         x: torch.Tensor,
@@ -131,6 +133,9 @@ class Attention(nn.Module):
         v_lora: nn.Module
     ):
         bsz, seqlen, _ = x.shape
+
+        x_base = x
+        x = self.attention_norm(x)
 
         # QKV
         xq, xk, xv = self.wq(x) + q_lora(x), self.wk(x), self.wv(x) + v_lora(x)
@@ -168,11 +173,11 @@ class Attention(nn.Module):
         # final projection into the residual stream
         output = self.wo(output)
         output = self.resid_dropout(output)
-        return output
+        return x_base + output
 
 
 class FeedForward(nn.Module):
-    def __init__(self, dim: int, hidden_dim: int, multiple_of: int, dropout: float, ffn_dim_multiplier: Optional[float]):
+    def __init__(self, dim: int, hidden_dim: int, multiple_of: int, dropout: float, ffn_dim_multiplier: Optional[float], args: ModelArgs):
         super().__init__()
         hidden_dim = int(2 * hidden_dim / 3)
         if ffn_dim_multiplier is not None:
@@ -182,10 +187,12 @@ class FeedForward(nn.Module):
         self.w2 = nn.Linear(hidden_dim, dim, bias=False)
         self.w3 = nn.Linear(dim, hidden_dim, bias=False)
         self.dropout = nn.Dropout(dropout)
+        self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps)
 
     def forward(self, x):
-        return self.dropout(self.w2(F.silu(self.w1(x)) * self.w3(x)))
-
+        x_base = x
+        x = self.ffn_norm(x)
+        return x_base + self.dropout(self.w2(F.silu(self.w1(x)) * self.w3(x)))
 
 class TransformerBlock(nn.Module):
     def __init__(self, layer_id: int, args: ModelArgs):
@@ -193,21 +200,25 @@ class TransformerBlock(nn.Module):
         self.n_heads = args.n_heads
         self.dim = args.dim
         self.head_dim = args.dim // args.n_heads
-        self.attention = Attention(args)
-        self.feed_forward = FeedForward(
+
+        #self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
+        #self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps)
+
+        self.attention = BlackboxDisk(Attention(args), args)
+        self.feed_forward = BlackboxDisk(FeedForward(
             dim=args.dim,
             hidden_dim=4 * args.dim,
             multiple_of=args.multiple_of,
             dropout=args.dropout,
-            ffn_dim_multiplier=args.ffn_dim_multiplier
-        )
+            ffn_dim_multiplier=args.ffn_dim_multiplier,
+            args=args
+        ), args)
         self.layer_id = layer_id
-        self.attention_norm = RMSNorm(args.dim, eps=args.norm_eps)
-        self.ffn_norm = RMSNorm(args.dim, eps=args.norm_eps)
+
 
     def forward(self, x, freqs_cos, freqs_sin, lora_q, lora_v):
-        h = x + self.attention.forward(self.attention_norm(x), freqs_cos, freqs_sin, lora_q, lora_v)
-        out = h + self.feed_forward.forward(self.ffn_norm(h)) 
+        h = self.attention(x, freqs_cos, freqs_sin, lora_q, lora_v)
+        out = self.feed_forward(h) 
         return out
     
 class LoRA(nn.Module):
@@ -243,12 +254,15 @@ class Transformer(nn.Module):
         self.lora_layers = []
         for layer_id in range(params.n_layers):
             block = TransformerBlock(layer_id, params)
-            q_lora = LoRA(block.attention.wq, rank=params.lora_rank, alpha=params.lora_alpha, dropout=params.lora_dropout).to(params.compute_dtype)
-            v_lora = LoRA(block.attention.wv, rank=params.lora_rank, alpha=params.lora_alpha, dropout=params.lora_dropout).to(params.compute_dtype)
+
+            # TODO: remove this one 
+            attn = block.attention.loaded_inner()
+            q_lora = LoRA(attn.wq, rank=params.lora_rank, alpha=params.lora_alpha, dropout=params.lora_dropout).to(params.compute_dtype)
+            v_lora = LoRA(attn.wv, rank=params.lora_rank, alpha=params.lora_alpha, dropout=params.lora_dropout).to(params.compute_dtype)
             self.lora_layers.append({ 'q_lora': q_lora, 'v_lora': v_lora})
             self.add_module(f'q_lora_{layer_id}', q_lora)
             self.add_module(f'v_lora_{layer_id}', v_lora)
-            self.layers.append(BlackboxDisk(block, params))
+            self.layers.append(block)
             logging.debug(f'created transformer block {layer_id}')
 
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
@@ -348,7 +362,11 @@ class Transformer(nn.Module):
 
         for i, (layer, rng_state, lora) in enumerate(zip(reversed(self.layers), reversed(rng_before), reversed(self.lora_layers))):
             restore_rng_state(rng_state, device=device)
-            last_grad = self.backprop_w_lora(layer, last_grad, freqs_cos, freqs_sin, lora['q_lora'], lora['v_lora'])
+            # first, do feed_forward
+            last_grad = self.backprop_w_lora(layer.feed_forward, last_grad)
+            
+            # now, do attention
+            last_grad = self.backprop_w_lora(layer.attention, last_grad, freqs_cos, freqs_sin, lora['q_lora'], lora['v_lora'])
             logging.log(level=logging.DEBUG, msg=f'combined: transformer block {i} done')
 
         # no need to backpropagate through embeddings no LoRA layers there.

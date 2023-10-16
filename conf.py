@@ -27,4 +27,4 @@ snapshots_path = 'out'
 finetune_file = './test_data/cubestat.txt'
 prompt = 'Cubestat reports the following metrics: '
 
-llama2_model_path = '../llama-2-7b'
+llama2_model_path = '../llama-2-70b'
