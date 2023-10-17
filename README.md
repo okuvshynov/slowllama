@@ -42,7 +42,7 @@ Modify the input/output paths in the script itself.
 
 Now we can try not-finetuned llama2:
 ```
-python test_gen.py ../llama7b mps # use path to transformed model here
+python test_gen.py
 ```
 
 Now let's finetune the 7b model. [finetune.py](finetune.py) is a very simple script which trains LoRA weights based on the plaintext data. There are some settings you could change here, like sequence length, batch size, learning rate, dropout rate, number of iterations. Current settings are pretty much a guess, change this if desired. Adjust accordingly. Currently it uses AdamW optimizer.
@@ -89,7 +89,7 @@ Maybe we were overfitting already at this point.
 Running completion with newly produced lora checkpoint can be done like this:
 
 ```
-python test_gen.py ../llama7b mps ./out/state_dict_19.pth
+python test_gen.py ./out/state_dict_19.pth
 ```
 
 ### How does it work?
@@ -207,13 +207,13 @@ In order to merge LoRA checkpoint back to the model in original format, we can d
 
 ```
 # confirm that old model is producing wrong output
-python test_gen.py ../llama-2-7b mps
+python test_gen.py
 
 # ...
 # 0 - slowllama is a 24 year old (DOB: May 1, 1997) pure-blood witch 
 
 # check what would be the output for finetuned model by passing path to checkpoint
-python test_gen.py ../llama-2-7b mps ./data/state_dict_29.pth
+python test_gen.py ./data/state_dict_29.pth
 
 # ...
 # 0 - slowllama is a 100% static, 100% offline, 100% open source, 100% free,
@@ -228,8 +228,9 @@ python merge_lora.py ../llama-2-7b ./data/state_dict_29.pth ../llama-2-7b-out
 # copy tokenizer model over:
 cp ../llama-2-7b/tokenizer.model ../llama-2-7b-out/
 
+# update the path in conf.py to be  ../llama-2-7b-out/
 # now run new model with no extra checkpoint, observe new output, same as in combined model: 
-python test_gen.py ../llama-2-7b-out mps
+python test_gen.py 
 
 # ...
 # 0 - slowllama is a 100% static, 100% offline, 100% open source, 100% free,
