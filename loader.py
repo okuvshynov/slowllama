@@ -11,13 +11,13 @@ from blackbox_model import Transformer
 
 # how are weights sharded in llama2 - by rows or columns
 join_dim = {
-    'attention.wq': 0,
-    'attention.wk': 0,
-    'attention.wv': 0,
-    'attention.wo': 1,
-    'feed_forward.w1': 0,
-    'feed_forward.w2': 1,
-    'feed_forward.w3': 0,
+    'wq': 0,
+    'wk': 0,
+    'wv': 0,
+    'wo': 1,
+    'w1': 0,
+    'w2': 1,
+    'w3': 0,
     'output': 0,
     'tok_embeddings': 1,
 }
@@ -74,16 +74,44 @@ def prepare_model(llama2_path, frozen_path, **kwargs):
 
         for i, layer in enumerate(model.layers):
             prefix = f'layers.{i}.'
-            block = layer.loaded_inner()
-            for title, submodule in block.named_modules():
+            #block = layer.loaded_inner()
+            for title, submodule in layer.named_modules():
                 if hasattr(submodule, 'weight'):
                     full_path = f'{prefix}{title}.weight'
                     weight_subset = checkpoint[full_path]
                     apply_subset(submodule, weight_subset, ci, title)
                     del checkpoint[full_path]
                     gc.collect()
+            
+            prefix = f'layers.{i}.attention.'
+            attention = layer.attention.loaded_inner()
+            for title, submodule in attention.named_modules():
+                if hasattr(submodule, 'weight'):
+                    if 'attention_norm' in title:
+                        full_path = f'layers.{i}.attention_norm.weight'
+                    else:
+                        full_path = f'{prefix}{title}.weight'
+                    weight_subset = checkpoint[full_path]
+                    apply_subset(submodule, weight_subset, ci, title)
+                    del checkpoint[full_path]
+                    gc.collect()
+            layer.attention.save(attention)
+
+            prefix = f'layers.{i}.feed_forward.'
+            feed_forward = layer.feed_forward.loaded_inner()
+            for title, submodule in feed_forward.named_modules():
+                if hasattr(submodule, 'weight'):
+                    if 'ffn_norm' in title:
+                        full_path = f'layers.{i}.ffn_norm.weight'
+                    else:
+                        full_path = f'{prefix}{title}.weight'
+                    weight_subset = checkpoint[full_path]
+                    apply_subset(submodule, weight_subset, ci, title)
+                    del checkpoint[full_path]
+                    gc.collect()
+            layer.feed_forward.save(feed_forward)
             logging.info(f'prepare_model: updating layer {i} out of {len(model.layers)}')
-            layer.save(block)
+            #layer.save(block)
 
         # now repeat for other submodules: output, embeddings and norm
         title = 'output'

@@ -16,15 +16,15 @@ log_level = logging.DEBUG
 # training settings
 
 iters = 20
-seq_len = 128
-batch_size = 16
+seq_len = 1024
+batch_size = 6
 
 eval_before_training = False
 eval_period = 20
 gen_tokens = 32
 
 snapshots_path = 'out'
-finetune_file = './test_data/cubestat.txt'
+finetune_file = './README.md'
 prompt = 'Cubestat reports the following metrics: '
 
-llama2_model_path = '../llama-2-7b'
+llama2_model_path = '/Volumes/LLAMAS/llama-2-70b'
