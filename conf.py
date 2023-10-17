@@ -16,8 +16,8 @@ log_level = logging.DEBUG
 # training settings
 
 iters = 20
-seq_len = 512
-batch_size = 24
+seq_len = 1024
+batch_size = 6
 
 eval_before_training = False
 eval_period = 20
