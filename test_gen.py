@@ -22,4 +22,4 @@ logging.info('Model loaded.')
 
 prompt = 'Cubestat reports the following metrics: '
 
-greedy_gen(model, tokenizer, device, prompt, max_new_tokens=30)
+greedy_gen(model, tokenizer, device, prompt, max_new_tokens=100)
