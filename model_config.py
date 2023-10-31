@@ -15,7 +15,6 @@ class ModelArgs:
     dropout: float = 0.0 # unless we bring back 
     ffn_dim_multiplier: Optional[float] = None
     compute_dtype: torch.dtype = torch.float32
-    offload_location: str = 'disk' # 'disk' or 'ram'
     rope_theta: float = 10000.0
     lora_rank: int = 8
     lora_alpha: int = 64

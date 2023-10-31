@@ -15,7 +15,6 @@ device = 'mps' # mps for macbooks
 seq_len = 1024
 batch_size = 4
 lr = 1e-4
-offload_to = 'disk'
 
 # type used for computation. Might be different from storage type (which is bfloat16)
 compute_dtype = torch.float32 # float32 for macbooks
