@@ -14,7 +14,7 @@ lora_weights = sys.argv[1] if len(sys.argv) > 1 else None
 tokenizer_path = os.path.join(frozen_model_path, 'tokenizer.model')
 tokenizer = Tokenizer(tokenizer_path)
 
-model = load_frozen(frozen_model_path, dropout=0.0, lora_rank=4, frozen_dtype=frozen_dtype, compute_dtype=compute_dtype).to(device)
+model = load_frozen(frozen_model_path, dropout=0.0, lora_rank=lora_rank, frozen_dtype=frozen_dtype, compute_dtype=compute_dtype).to(device)
 if lora_weights is not None:
     logging.debug(model.load_state_dict(torch.load(lora_weights), strict=False))
 
