@@ -39,13 +39,14 @@ python prepare_model.py
 ```
 
 The paths to the input and output models are configured in the conf files. There's a base file [conf.py](conf.py) and two files with some overrides [conf_fp16.py](conf_fp16.py) and [conf_fp32.py](conf_fp32.py). By default [prepare_model.py](prepare_model.py) uses fp16 config. Modify these files with the paths you have your models in.
+The scripts below use the same configuration files as well.
 
 Now we can try not-finetuned llama2:
 ```
 python test_gen.py
 ```
 
-Now let's finetune the 7b model. [finetune.py](finetune.py) is a very simple script which trains LoRA weights based on the plaintext data. There are some settings you could change here, like sequence length, batch size, learning rate, dropout rate, number of iterations. Current settings are pretty much a guess, change this if desired. Adjust accordingly. Currently it uses AdamW optimizer.
+Now let's finetune the 7b model. [finetune.py](finetune.py) is a very simple script which trains LoRA weights based on the plaintext data. There are some settings you could change here, like sequence length, batch size, learning rate, dropout rate, number of iterations. Current settings are pretty much a guess, change this if desired. Currently it uses AdamW optimizer.
 
 ```
 python finetune.py
@@ -209,31 +210,41 @@ In order to merge LoRA checkpoint back to the model in original format, we can d
 # confirm that old model is producing wrong output
 python test_gen.py
 
-# ...
-# 0 - slowllama is a 24 year old (DOB: May 1, 1997) pure-blood witch 
+...
+0 - Cubestat reports the following metrics: 1) the number of cubes in the system, 2) the number of cubes that are currently running, 3) the number of cubes that are currently stopped, 4) the number of cubes that are currently in the process of starting,
 
 # check what would be the output for finetuned model by passing path to checkpoint
-python test_gen.py ./data/state_dict_29.pth
+python test_gen.py ./data/state_dict_18.pth
 
-# ...
-# 0 - slowllama is a 100% static, 100% offline, 100% open source, 100% free,
+...
+0 - Cubestat reports the following metrics:
+
+CPU utilization - configurable per core ('expanded'), cluster of cores: Efficiency/Performance ('cluster') or both. Is shown as percentage.
+GPU utilization per card/chip. Is shown in percentage. Works for Apple's M1/M2 SoC and nVidia GPUs. For nVidia GPU shows memory usage as well.
+ANE (Apple's Neural Engine) power consumption.....
 
 # now run merge. we need to pass: 
 #   - original model path
 #   - new path for new model
-#   - lora checkpoint path 
-#   - optionally number of model shards (default = 1)
-python merge_lora.py ../llama-2-7b ./data/state_dict_29.pth ../llama-2-7b-out
+#   - lora checkpoint path
+# note that merge would first delete the output directory if it exists and copy over original weights there. 
+python merge_lora.py ../llama-2-7b ./data/state_dict_18.pth ../llama-2-7b-out
 
-# copy tokenizer model over:
-cp ../llama-2-7b/tokenizer.model ../llama-2-7b-out/
+# at this point ../llama-2-7b-out is merged.
+# If we want to run inference within slowllama for testing, we need to run prepare_model.py again.
 
-# update the path in conf.py to be  ../llama-2-7b-out/
-# now run new model with no extra checkpoint, observe new output, same as in combined model: 
+# update the llama2_model_path in conf.py to be  ../llama-2-7b-out/ and in conf_16.py frozen_model_path = '../llama13b_f16_out'
+python prepare_model.py
+
+# now run new model with no extra checkpoint, observe new output, same as in runtime-combined model: 
 python test_gen.py 
 
-# ...
-# 0 - slowllama is a 100% static, 100% offline, 100% open source, 100% free,
+...
+0 - Cubestat reports the following metrics:
+
+CPU utilization - configurable per core ('expanded'), cluster of cores: Efficiency/Performance ('cluster') or both. Is shown as percentage.
+GPU utilization per card. Is shown in percentage. Works for Apple's M1/M2 SoC and nVidia GPUs. For nVidia GPU shows memory usage as well.
+ANE (Apple's Neural Engine) power consumption.....
 
 ```
 
