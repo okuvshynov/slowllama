@@ -181,8 +181,8 @@ def add_lora(model_path, lora_path):
         for layer in range(n_layers):
             logging.info(f'add_lora: processing checkpoint {ci} layer {layer} out of {n_layers}')
             for attn_key in ['v', 'q']:
-                local_path = f'attention.w{attn_key}'
-                checkpoint_key = f'layers.{layer}.{local_path}.weight'
+                local_path = f'w{attn_key}'
+                checkpoint_key = f'layers.{layer}.attention.{local_path}.weight'
                 a_key = f'{attn_key}_lora_{layer}.A.weight'
                 b_key = f'{attn_key}_lora_{layer}.B.weight'
                 lora = lora_weights[b_key].mm(lora_weights[a_key]) * lora_scale

@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import shutil
 
@@ -10,5 +11,7 @@ model_path = sys.argv[1]
 lora_path = sys.argv[2]
 out_model_path = sys.argv[3]
 
-#shutil.copytree(model_path, out_model_path)
+if os.path.exists(out_model_path):
+    shutil.rmtree(out_model_path)
+shutil.copytree(model_path, out_model_path)
 add_lora(out_model_path, lora_path)
