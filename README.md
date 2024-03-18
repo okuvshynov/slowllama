@@ -214,7 +214,7 @@ python test_gen.py
 0 - Cubestat reports the following metrics: 1) the number of cubes in the system, 2) the number of cubes that are currently running, 3) the number of cubes that are currently stopped, 4) the number of cubes that are currently in the process of starting,
 
 # check what would be the output for finetuned model by passing path to checkpoint
-python test_gen.py ./data/state_dict_18.pth
+python test_gen.py ./out/state_dict_18.pth
 
 ...
 0 - Cubestat reports the following metrics:
@@ -228,12 +228,14 @@ ANE (Apple's Neural Engine) power consumption.....
 #   - new path for new model
 #   - lora checkpoint path
 # note that merge would first delete the output directory if it exists and copy over original weights there. 
-python merge_lora.py ../llama-2-7b ./data/state_dict_18.pth ../llama-2-7b-out
+python merge_lora.py ../llama-2-13b ./out/state_dict_18.pth ../llama-2-13b-out
 
-# at this point ../llama-2-7b-out is merged.
+# at this point ../llama-2-13b-out is merged can be used in exactly same way as original llama2 for further quantization, inference, etc.
+
+
 # If we want to run inference within slowllama for testing, we need to run prepare_model.py again.
+# update the llama2_model_path in conf.py to be  ../llama-2-13b-out/ and in conf_16.py frozen_model_path = '../llama13b_f16-out'
 
-# update the llama2_model_path in conf.py to be  ../llama-2-7b-out/ and in conf_16.py frozen_model_path = '../llama13b_f16_out'
 python prepare_model.py
 
 # now run new model with no extra checkpoint, observe new output, same as in runtime-combined model: 
@@ -247,8 +249,6 @@ GPU utilization per card. Is shown in percentage. Works for Apple's M1/M2 SoC an
 ANE (Apple's Neural Engine) power consumption.....
 
 ```
-
-Now the ```../llama-2-7b-out``` can be used in exactly same way as original llama2 for further quantization, inference, etc.
 
 ### Project structure
 
