@@ -38,7 +38,7 @@ First step is to transform the model to the sequential format more suitable for 
 python prepare_model.py
 ```
 
-Modify the input/output paths in the script itself.
+The paths to the input and output models are configured in the conf files. There's a base file [conf.py](conf.py) and two files with some overrides [conf_fp16.py](conf_fp16.py) and [conf_fp32.py](conf_fp32.py). By default [prepare_model.py](prepare_model.py) uses fp16 config. Modify these files with the paths you have your models in.
 
 Now we can try not-finetuned llama2:
 ```
