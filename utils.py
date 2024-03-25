@@ -61,6 +61,17 @@ def greedy_gen(model, tokenizer, device, prompt, max_new_tokens=50):
     for i, output in enumerate(tokens):
         logging.info(f'{i} - {tokenizer.decode(output.tolist())}')
 
+def greedy_gen2(model, tokenizer, device, prompt, max_new_tokens=50):
+    tokens = torch.tensor(tokenizer.encode(prompt, True, False)).view(1, -1).to(device)
+    model.eval()
+    for _ in range(max_new_tokens):
+        logits = model(tokens)
+        logits = logits[:, -1, :]
+        _, next_token = torch.topk(logits, k=1, dim=-1)
+        logging.info(f'next token: {next_token} {tokenizer.decode(next_token.tolist())}')
+        yield tokenizer.decode(next_token.tolist())[0]
+        tokens = torch.cat((tokens, next_token), dim=1)
+
 def cleanup_cache(device='cpu'):
     if device.startswith('mps'):
         import torch.mps
