@@ -9,7 +9,10 @@ def device_map(device):
 
 def device_supports_dtype(device, dtype):
     try:
-        tensor = torch.tensor([1.0, 2.0]).to(device).to(dtype)
+        a = torch.rand(2, 2).to(device).to(dtype)
+        b = torch.rand(2, 2).to(device).to(dtype)
+        c = a.mm(b)
+        logging.debug(f'success, {device} supports {dtype}')
         return True
     except TypeError as e:
         return False
