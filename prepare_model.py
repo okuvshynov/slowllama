@@ -3,7 +3,7 @@
 import torch
 import logging
 
-from loader import prepare_model
+from llama2_loader import prepare_model
 from conf_fp16 import *
 
 logging.basicConfig(format='%(asctime)s %(message)s',

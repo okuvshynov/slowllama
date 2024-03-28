@@ -7,7 +7,7 @@ import logging
 import shutil
 
 from model_config import ModelArgs
-from blackbox_model import Transformer
+from llama2 import Transformer
 from utils import device_supports_dtype
 
 # how are weights sharded in llama2 - by rows or columns

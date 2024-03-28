@@ -2,7 +2,7 @@ import os
 import torch
 import logging
 
-from loader import load_frozen
+from llama2_loader import load_frozen
 from plot_lora import log_lora
 from utils import Tokenizer, greedy_gen
 

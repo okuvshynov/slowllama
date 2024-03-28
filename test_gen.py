@@ -3,7 +3,7 @@ import torch
 import sys
 import os
 
-from loader import load_frozen
+from llama2_loader import load_frozen
 from utils import Tokenizer, greedy_gen
 from conf_fp16 import *
 

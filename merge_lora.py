@@ -3,7 +3,7 @@ import os
 import sys
 import shutil
 
-from loader import add_lora
+from llama2_loader import add_lora
 
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO, filename='logs/merge_lora.log')
     
